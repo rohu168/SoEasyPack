@@ -20,7 +20,7 @@ To install soeasypack, follow these steps:
 - **1**: 模式介绍
 - 项目有两种打包模式：普通打包和快速打包（默认使用快速打包）
   
-- 普通打包会先复制当前python主环境的必要官方文件，然后复制前python环境的整个site-packages
+- 普通打包会先复制当前python主环境的必要官方文件，然后复制当前py环境的整个site-packages
   文件夹到你指定的保存目录，然后启动分析工具分析依赖文件，然后根据依赖文件去删除site-packages
   中无用的文件，会保留被删除的文件到removed_file中，然后自动生成exe, 还可选将你的脚本文件转为pyd,
   最后项目就打包完成了。因为会复制整个site-packages文件夹，所以普通模式只建议在虚拟环境中使用。
