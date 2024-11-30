@@ -1,4 +1,4 @@
-# [Project Name]
+# SoEasyPack
 - 此项目受[PyStand](https://github.com/skywind3000/PyStand "PyStand")和[PythonSizeCruncher](https://github.com/mengdeer589/PythonSizeCruncher "PythonSizeCruncher")启发。
 - 用简易的方式复制你的python项目并自动精准匹配环境依赖，几乎没有什么多余文件，
 并且可以生成一个exe外壳（用[极语言](http://sec.z5x.cn/ "极语言")制作）作为程序入口启动项目。
@@ -8,11 +8,11 @@
 
 ## 安装
 
-To install [Project Name], follow these steps:
+To install soeasypack, follow these steps:
 
 
 ```shell
-    pip install [Package Name]
+    pip install soeasypack
 ```
 ## 介绍
 
@@ -27,9 +27,10 @@ To install [Project Name], follow these steps:
        快速打包是先启动分析工具分析依赖文件。然后把依赖文件复制到保存目录，再自动生成exe, 没有项目瘦身这一步骤，
        所以没有虚拟环境的话，建议使用快速打包模式，它不会复制整个site-packages文件夹
 - **2**: 注意事项
--      为了能完整记录依赖文件，监控工具启动后，会自动运行你的脚本，请对你的项目进行必要的操作，如点击运行按钮等，
-       如：我使用openpyxl往表格中插入图片，项目自动启动后，我要让脚本执行这一操作，这样，监控工具才能监控到依赖文件，
-       否则，最后的依赖文件记录不到，所以，请一定要注意，你的项目启动后，一定要执行必要的操作。
+-      为了能完整记录依赖文件，监控工具启动后，会自动运行你的脚本，请对你的项目进行必要的操作：如点击运行按钮等，
+       如：我使用openpyxl往表格中插入图片，项目自动启动后，我要让脚本执行这一操作，
+       这样，监控工具才能监控到依赖文件，否则，最后的依赖文件记录不到，
+       所以，请一定要注意，你的项目启动后，一定要执行必要的操作。
        
 - **3**: 函数介绍
 
