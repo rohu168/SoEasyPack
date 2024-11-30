@@ -3,7 +3,7 @@
 - 用简易的方式复制你的python项目并自动精准匹配环境依赖，几乎没有什么多余文件，
 并且可以生成一个exe外壳（用[极语言](http://sec.z5x.cn/ "极语言")制作）作为程序入口启动项目。
 因为只有windows电脑,所以此项目仅支持windows
-- 原理：使用微软[procmon](https://learn.microsoft.com/en-us/sysinternals/downloads/procmon, "procmon")进程监控工具，监控项目运行时访问的文件记录
+- 原理：使用微软[procmon](https://learn.microsoft.com/en-us/sysinternals/downloads/procmon "procmon")进程监控工具，监控项目运行时访问的文件记录
 
 
 ## 安装
