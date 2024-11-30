@@ -30,7 +30,7 @@ To install soeasypack, follow these steps:
 -      为了能完整记录依赖文件，监控工具启动后，会自动运行你的脚本，请对你的项目进行必要的操作：如点击运行按钮等，
        如：我使用openpyxl往表格中插入图片，项目自动启动后，我要让脚本执行这一操作，
        这样，监控工具才能监控到依赖文件，否则，最后的依赖文件记录不到，
-       所以，请一定要注意，你的项目启动后，一定要执行必要的操作。
+       所以，请一定要注意，你的项目启动后，一定要默认监控时间20秒内执行必要的操作。
        
 - **3**: 函数介绍
 
@@ -61,3 +61,4 @@ To install soeasypack, follow these steps:
 <img  alt="支付宝" style="width: 20%; height: auto;" src="https://github.com/XMQSVIP/MyImage/blob/main/wei.png"/>
 <img alt="微信" style="width: 20%; height: auto;" src="https://github.com/XMQSVIP/MyImage/blob/main/zhi.jpg"/>
 </div>
+

@@ -111,7 +111,7 @@ def bat_to_exe(bat_path, save_dir, hide_cmd: bool = False, exe_name: str = 'main
                copyright: str = '', privatebuild: str = '',
                specialbuild: str = '', comments: str = ''):
     #  bat转exe
-    current_dir = Path(__file__).parent
+    current_dir = Path(__file__).parent.parent
     converter_path = Path.joinpath(current_dir, 'dep_exe/Bat_To_Exe_Converter.exe')
 
     exe_path = f"/exe {Path.joinpath(Path(save_dir), exe_name)}"
@@ -179,7 +179,7 @@ def ji_to_exe(main_py_path, project_dir, hide_cmd: bool = True, exe_name: str = 
     :return:
     """
     logging.info('使用极语言生成exe...')
-    current_dir = Path(__file__).parent
+    current_dir = Path(__file__).parent.parent
     user_exe_path = Path.joinpath(current_dir, 'dep_exe/sec/sep.exe')
     compiler_file = Path.joinpath(current_dir, 'dep_exe/sec/Sc.exe')
     bac_path = Path.joinpath(current_dir, 'dep_exe/sec/窗体.bac')

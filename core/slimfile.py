@@ -32,7 +32,7 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, fast_mode
     检查依赖文件
     """
 
-    current_dir = Path(__file__).parent
+    current_dir = Path(__file__).parent.parent
     procmon_path = current_dir.joinpath('dep_exe/Procmon64.exe')
     pmc_base_path = current_dir.joinpath('dep_exe/ProcmonConfiguration.pmc')
     procmon_log_path = Path(project_dir).joinpath('procmon_log.pml')
