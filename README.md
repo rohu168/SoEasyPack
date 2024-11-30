@@ -58,6 +58,6 @@ To install soeasypack, follow these steps:
 - 如果你觉得对你有帮助的话，可以打赏1元让作者买个馍哦
 <div style="display: flex; justify-content: center; gap: 100px;">
 
-<img  alt="支付宝" style="width: 15%; height: auto;" src="https://github.com/XMQSVIP/MyImage/blob/main/wei.png"/>
-<img alt="微信" style="width: 15%; height: auto;" src="https://github.com/XMQSVIP/MyImage/blob/main/zhi.jpg"/>
+<img  alt="支付宝" style="width: 20%; height: auto;" src="https://github.com/XMQSVIP/MyImage/blob/main/wei.png"/>
+<img alt="微信" style="width: 20%; height: auto;" src="https://github.com/XMQSVIP/MyImage/blob/main/zhi.jpg"/>
 </div>
