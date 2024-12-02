@@ -24,6 +24,8 @@ To install soeasypack, follow these steps:
 ```shell
     pip install soeasypack
 ```
+## 操作演示
+   [操作演示](https://www.bilibili.com/video/BV1Pfz4YdEAZ/ "操作演示") 地址：https://www.bilibili.com/video/BV1Pfz4YdEAZ/
 ## 介绍
 
 - **1**: 模式介绍
