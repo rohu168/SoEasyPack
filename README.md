@@ -12,7 +12,7 @@
 - 使用Pyinstaller打包后报模块缺失，补上后项目大小为49.3M
 - 使用soeasypack的快速模式打包，项目大小为39.3M
 - 使用soeasypack的普通模式打包，项目大小为38.3M
-- 使用PythonSizeCruncher的安全模式对对PyStand打包的项目瘦身后，项目大小为51.4M
+- 使用PythonSizeCruncher的安全模式对PyStand打包的项目瘦身后，项目大小为51.4M
 - 使用soeasypack的to_slim_file对PyStand打包的项目瘦身后，项目大小为36.5M
 - 使用soeasypack的to_slim_file对Pyinstaller打包的项目瘦身后,项目大小为36.6M
 
