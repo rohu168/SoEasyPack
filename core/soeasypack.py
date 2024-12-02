@@ -14,14 +14,14 @@ import time
 from pathlib import Path
 
 from .py_to_pyd import to_pyd
-from .slimfile import to_slim_file, check_dependency_files, process_exists_by_pid
+from .slimfile import to_slim_file, check_dependency_files
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
 
 
-def copy_py_env(save_dir, main_run_path=None, fast_mode=False):
+def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=18, except_packages=None):
     """
     复制 Python环境依赖
     :param save_dir:
@@ -32,9 +32,15 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False):
 
     base_env_dir = str(sys.base_prefix)
     current_env_dir = str(sys.prefix)
+    if current_env_dir == base_env_dir:
+        is_go = input(f"当前你的环境：非虚拟环境，{current_env_dir}, 若继续操作，请输入Y或y：")
+        if is_go.lower() != 'y':
+            sys.exit()
+        logging.warning("非虚拟环境可能会打包无用的依赖文件！")
     if fast_mode:
         logging.info("当前模式：快速模式")
-        dependency_files = check_dependency_files(main_run_path, save_dir, fast_mode=fast_mode)
+        dependency_files = check_dependency_files(main_run_path, save_dir, fast_mode=fast_mode,
+                                                  monitoring_time=monitoring_time, except_packages=except_packages)
         runtime_dir = str(Path.joinpath(Path(save_dir), 'runtime'))
         logging.info("复制python环境...")
         for dependency_file in dependency_files:
@@ -50,10 +56,6 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False):
 
     else:
         logging.info("当前模式：普通模式")
-        if current_env_dir == base_env_dir:
-            is_go = input(f"当前你的环境：非虚拟环境，{current_env_dir}, 若继续操作，请输入Y或y")
-            if is_go.lower() != 'y':
-                sys.exit()
 
         dest = Path.joinpath(Path(save_dir), 'runtime')
 
@@ -255,7 +257,7 @@ def ji_to_exe(main_py_path, project_dir, hide_cmd: bool = True, exe_name: str = 
 def to_pack(main_py_path: str = 'main.py', save_dir: str = '',
             exe_name: str = 'main', icon_path: str = '', hide_cmd: bool = False,
             fast_mode: bool = True, force_copy_env: bool = False, auto_py_pyd: bool = False,
-            create_exe: bool = True, monitoring_time: int = 18,
+            create_exe: bool = True, monitoring_time: int = 18, except_packages: list = None,
             **kwargs):
     """
 
@@ -269,9 +271,10 @@ def to_pack(main_py_path: str = 'main.py', save_dir: str = '',
     因为会复制整个site-packages文件夹，所以不建议在非虚拟环境使用，
     快速打包模式会比普通模式大几兆
     :param force_copy_env: 强行每次复制python环境依赖包
+    :param auto_py_pyd：知否把你的脚本转为pyd
     :param create_exe: 是否生成exe
     :param monitoring_time: 监控工具运行时长（秒）
-    :param auto_py_pyd：知否把你的脚本转为pyd
+    :param monitoring_time: 排除的第三方包名称
     :param kwargs:
     :return:
     """
@@ -289,12 +292,12 @@ def to_pack(main_py_path: str = 'main.py', save_dir: str = '',
     if force_copy_env:
         if os.path.exists(runtime_dir):
             shutil.rmtree(runtime_dir)
-        copy_py_env(save_dir, main_py_path, fast_mode)
+        copy_py_env(save_dir, main_py_path, fast_mode, monitoring_time, except_packages)
     else:
         if os.path.exists(runtime_dir):
             logging.info('runtime文件夹已存在，跳过环境复制')
         else:
-            copy_py_env(save_dir, main_py_path, fast_mode)
+            copy_py_env(save_dir, main_py_path, fast_mode, monitoring_time, except_packages)
 
     new_main_py_path = copy_py_script(main_py_path, save_dir)
 

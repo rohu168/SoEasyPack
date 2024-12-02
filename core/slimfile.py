@@ -19,15 +19,8 @@ logging.basicConfig(level=logging.INFO,
                     datefmt='%Y-%m-%d %H:%M:%S')
 
 
-def process_exists_by_pid(pid):
-    try:
-        process = psutil.Process(pid)
-        return process.is_running()
-    except psutil.NoSuchProcess:
-        return False
-
-
-def check_dependency_files(main_run_path, project_dir, check_dir=None, fast_mode=False, monitoring_time=12):
+def check_dependency_files(main_run_path, project_dir, check_dir=None, fast_mode=False,
+                           monitoring_time=18, except_packages=None):
     """
     检查依赖文件
     """
@@ -119,6 +112,15 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, fast_mode
         time.sleep(1)
 
     dependency_files = get_dependency_list(csv_log_path, image_path, check_dir, fast_mode)
+    # # 排除第三方依赖包
+    if except_packages:
+        ready_remove_list = []
+        for i in dependency_files:
+            for except_package in except_packages:
+                if f"site-packages\\{except_package}" in i:
+                    ready_remove_list.append(i)
+        for i in ready_remove_list:
+            dependency_files.remove(i)
 
     with open(dependency_file_csv, mode='w', newline='', encoding='utf-8') as fp:
         csv_writer = csv.writer(fp)
