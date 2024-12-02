@@ -33,13 +33,12 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False):
     base_env_dir = str(sys.base_prefix)
     current_env_dir = str(sys.prefix)
     if fast_mode:
-        logging.info("使用快速模式复制python环境...")
+        logging.info("当前模式：快速模式")
         dependency_files = check_dependency_files(main_run_path, save_dir, fast_mode=fast_mode)
         runtime_dir = str(Path.joinpath(Path(save_dir), 'runtime'))
+        logging.info("复制python环境...")
         for dependency_file in dependency_files:
             dependency_file_ = dependency_file.replace(base_env_dir, runtime_dir).replace(current_env_dir, runtime_dir)
-            if os.path.isdir(dependency_file):
-                continue
             if os.path.exists(dependency_file):
                 to_save_dir = os.path.dirname(dependency_file_)
                 os.makedirs(to_save_dir, exist_ok=True)
@@ -50,15 +49,20 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False):
                     # logging.error(f'文件 {dependency_file} 复制失败')
 
     else:
-        logging.info("使用普通模式复制python环境...")
-        # # 排除复制官方python无用的文件和文件夹
-        py_exclusions = ['Scripts', 'Doc', 'LICENSE', 'LICENSE.txt',
-                         'NEWS.txt', 'share', 'Tools', 'include', 'venv', 'site-packages', 'test'
-                         ]
+        logging.info("当前模式：普通模式")
+        if current_env_dir == base_env_dir:
+            is_go = input(f"当前你的环境：非虚拟环境，{current_env_dir}, 若继续操作，请输入Y或y")
+            if is_go.lower() != 'y':
+                sys.exit()
 
         dest = Path.joinpath(Path(save_dir), 'runtime')
 
         def ignore_files(directory, files):
+            # # 排除复制官方python无用的文件和文件夹
+            py_exclusions = ['Scripts', 'Doc', 'LICENSE', 'LICENSE.txt',
+                             'NEWS.txt', 'share', 'Tools', 'include', 'venv',
+                             'site-packages', 'test'
+                             ]
             return [f for f in files if f in py_exclusions]
 
         shutil.copytree(base_env_dir, dest, ignore=ignore_files, dirs_exist_ok=True)
@@ -72,24 +76,22 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False):
     if pyenv_file.exists():
         os.remove(pyenv_file)
 
-    logging.info('python环境复制完毕')
-
 
 def copy_py_script(main_py_path, save_dir):
     """
     复制用户脚本
-    :param script_dir:
-    :return:
     """
     logging.info('复制你的脚本...')
     script_dir = os.path.dirname(main_py_path)
     save_dir = Path.joinpath(Path(save_dir), 'script')
     shutil.copytree(script_dir, save_dir, dirs_exist_ok=True)
+    new_main_py_path = os.path.join(save_dir, os.path.basename(main_py_path))
+    return new_main_py_path
 
 
-def create_bat(main_py_path, save_dir):
+def create_bat(new_main_py_path, save_dir):
     # 生成bat脚本
-    main_py_relative_path = 'script/' + os.path.basename(main_py_path)
+    main_py_relative_path = 'script/' + os.path.basename(new_main_py_path)
     py_interpreter = 'runtime/python.exe'
     bat_file_content = f'''
     @echo off
@@ -248,12 +250,12 @@ def ji_to_exe(main_py_path, project_dir, hide_cmd: bool = True, exe_name: str = 
     # 恢复源文件
     with open(sec_path, 'w', encoding='gbk') as fp:
         fp.write(sec_content)
-    logging.info('完成')
 
 
 def to_pack(main_py_path: str = 'main.py', save_dir: str = '',
             exe_name: str = 'main', icon_path: str = '', hide_cmd: bool = False,
             fast_mode: bool = True, force_copy_env: bool = False, auto_py_pyd: bool = False,
+            create_exe: bool = True, monitoring_time: int = 18,
             **kwargs):
     """
 
@@ -267,13 +269,21 @@ def to_pack(main_py_path: str = 'main.py', save_dir: str = '',
     因为会复制整个site-packages文件夹，所以不建议在非虚拟环境使用，
     快速打包模式会比普通模式大几兆
     :param force_copy_env: 强行每次复制python环境依赖包
+    :param create_exe: 是否生成exe
+    :param monitoring_time: 监控工具运行时长（秒）
+    :param auto_py_pyd：知否把你的脚本转为pyd
     :param kwargs:
     :return:
     """
 
+    if not os.path.exists(main_py_path):
+        logging.error('未找到你的脚本，请检查路径')
+        return
+
     if not save_dir:
         # 获取桌面目录
-        save_dir = Path.joinpath(Path.home(), 'Desktop')
+        save_dir = Path.joinpath(Path.home(), 'Desktop\\SoEasyPack')
+    os.makedirs(save_dir, exist_ok=True)
 
     runtime_dir = str(save_dir) + '\\runtime'
     if force_copy_env:
@@ -286,20 +296,20 @@ def to_pack(main_py_path: str = 'main.py', save_dir: str = '',
         else:
             copy_py_env(save_dir, main_py_path, fast_mode)
 
-    if not os.path.exists(main_py_path):
-        logging.error('未找到你的脚本，请检查路径')
-        return
+    new_main_py_path = copy_py_script(main_py_path, save_dir)
 
-    copy_py_script(main_py_path, save_dir)
-
-    bat_path = create_bat(main_py_path, save_dir)
+    create_bat(new_main_py_path, save_dir)
     if not fast_mode:
-        to_slim_file(main_py_path, check_dir=runtime_dir, project_dir=save_dir)
+        to_slim_file(new_main_py_path, check_dir=runtime_dir, project_dir=save_dir, monitoring_time=monitoring_time)
 
     # bat_to_exe(bat_path, save_dir, hide_cmd, exe_name, icon_path, **kwargs)
-    ji_to_exe(main_py_path, save_dir, hide_cmd, exe_name, icon_path, **kwargs)
 
     if auto_py_pyd:
         script_dir = save_dir + '\\script'
         script_dir_main_py = os.path.join(script_dir, os.path.basename(main_py_path))
         to_pyd(script_dir, script_dir_main_py=script_dir_main_py)
+
+    if create_exe:
+        ji_to_exe(main_py_path, save_dir, hide_cmd, exe_name, icon_path, **kwargs)
+
+    logging.info('完成')
