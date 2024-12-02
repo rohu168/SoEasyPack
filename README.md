@@ -1,6 +1,6 @@
 # SoEasyPack
 - 此项目受[PyStand](https://github.com/skywind3000/PyStand "PyStand")和[PythonSizeCruncher](https://github.com/mengdeer589/PythonSizeCruncher "PythonSizeCruncher")启发。
-- 不需要复制嵌入式包，也不必再二次瘦身,一次打包就是最小依赖
+- 不需要复制嵌入式包，也不必再二次瘦身,一次打包理论上就是最小依赖
 - 用简易的方式复制你的python项目并自动精准匹配环境依赖，几乎没有什么多余文件，
 并且可以生成一个exe外壳（用[极语言](http://sec.z5x.cn/ "极语言")制作）作为程序入口启动项目。
 因为只有windows电脑,所以此项目仅支持windows
