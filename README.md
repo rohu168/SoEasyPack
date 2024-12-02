@@ -26,7 +26,7 @@ To install soeasypack, follow these steps:
     pip install soeasypack
 ```
 ## 操作演示
-   [操作演示](https://www.bilibili.com/video/BV1Pfz4YdEAZ/ "操作演示") 地址：https://www.bilibili.com/video/BV1Pfz4YdEAZ/
+   [操作演示](https://www.bilibili.com/video/BV1Pfz4YdEAZ/ "操作演示")
 ## 介绍
 
 - **1**: 模式介绍
@@ -72,8 +72,8 @@ To install soeasypack, follow these steps:
       to_pyd(script_dir: str, script_dir_main_py: str, is_del_py: bool = False)
       ```
 - 如果你觉得对你有帮助的话，可以打赏1元让作者买个馍哦
+![](https://github.com/XMQSVIP/MyImage/blob/main/wei.png?raw=true ""=200x200)
 <div style="display: flex; justify-content: center; gap: 100px;">
-
 <img  alt="" style="width: 20%; height: auto;" src="https://github.com/XMQSVIP/MyImage/blob/main/wei.png?raw=true"/>
 <img alt="" style="width: 20%; height: auto;" src="https://github.com/XMQSVIP/MyImage/blob/main/zhi.jpg?raw=true"/>
 </div>
