@@ -72,5 +72,6 @@ To install soeasypack, follow these steps:
       to_pyd(script_dir: str, script_dir_main_py: str, is_del_py: bool = False)
       ```
 - 如果你觉得对你有帮助的话，可以打赏1元让作者买个馍哦
+
 ![](https://github.com/XMQSVIP/MyImage/blob/main/zhi_wei.png?raw=true)
 
