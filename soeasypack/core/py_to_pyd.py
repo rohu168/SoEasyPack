@@ -11,7 +11,7 @@ from Cython.Build import cythonize
 
 
 def to_pyd(script_dir: str, script_dir_main_py: str, is_del_py: bool = False):
-    print("开始编译为pyd")
+    print("开始py转为pyd")
     temp_build_dir = os.path.join(script_dir, 'temp_build')  # 临时构建目录
     py_files = glob.glob(os.path.join(script_dir, '**', '*.py'), recursive=True)
     white_list = []

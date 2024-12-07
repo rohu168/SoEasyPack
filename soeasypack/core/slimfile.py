@@ -1,7 +1,7 @@
 """
 项目瘦身
-xmqsvip
-2024-11-29
+@author: xmqsvip
+Created on 2024-11-29
 """
 
 import os
@@ -9,7 +9,6 @@ import csv
 import sys
 import time
 import shutil
-import psutil
 import logging
 import subprocess
 from pathlib import Path
@@ -56,7 +55,6 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, fast_mode
     ]
     logging.info("启动监控工具")
     procmon_process = subprocess.Popen(cmd)
-    procmon_pid = procmon_process.pid
     time.sleep(1)
     current_env_py = sys.executable
     image_path = str(sys.base_prefix) + '\\python.exe'
@@ -103,7 +101,6 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, fast_mode
         "/LoadConfig", pmc_base_path,
     ]
     procmon_process = subprocess.Popen(cmd)
-    procmon_pid = procmon_process.pid
     procmon_process.wait()
 
     while True:
