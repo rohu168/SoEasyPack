@@ -239,11 +239,13 @@ def to_pack(main_py_path: str = 'main.py', save_dir: str = None,
     script_dir = save_dir + '\\rundep\\AppData'
     os.rename(new_main_py_path, os.path.join(script_dir, 'main.py'))
     if auto_py_pyd:
-        script_dir_main_py = os.path.join(script_dir, os.path.basename(main_py_path))
-        to_pyd(script_dir, script_dir_main_py=script_dir_main_py)
+        script_dir_main_py = os.path.join(script_dir, 'main.pyc')
+        try:
+            to_pyd(script_dir, script_dir_main_py=script_dir_main_py)
+        except Exception as e:
+            logging.error(f"转pyd出错：{e}")
 
     py_to_pyc(rundep_dir)
     create_bat(save_dir)
     build_exe(save_dir, hide_cmd, exe_name, png_path, **kwargs)
-
     logging.info('完成')
