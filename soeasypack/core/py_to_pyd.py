@@ -3,6 +3,7 @@ py编译为pyd
 xmqsvip
 2024-11-29
 """
+
 import os
 import glob
 import shutil
@@ -12,6 +13,7 @@ from Cython.Build import cythonize
 
 def to_pyd(script_dir: str, script_dir_main_py: str, is_del_py: bool = False):
     print("开始py转为pyd")
+    os.chdir(script_dir)
     temp_build_dir = os.path.join(script_dir, 'temp_build')  # 临时构建目录
     py_files = glob.glob(os.path.join(script_dir, '**', '*.py'), recursive=True)
     white_list = []
@@ -50,12 +52,12 @@ def to_pyd(script_dir: str, script_dir_main_py: str, is_del_py: bool = False):
                     if is_del_py:
                         os.remove(py_file)
                     break
-
+    # # 删除c文件
     c_files = glob.glob(os.path.join(script_dir, '**', '*.c'), recursive=True)
-
     for c_file in c_files:
         os.remove(c_file)
 
     shutil.rmtree(temp_build_dir, ignore_errors=True)
     py_cache = os.path.join(script_dir, '__pycache__')
     shutil.rmtree(py_cache, ignore_errors=True)
+    shutil.rmtree(script_dir + "\\build", ignore_errors=True)

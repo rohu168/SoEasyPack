@@ -12,7 +12,7 @@
 - 使用PyStand仅删除pip文件夹，项目大小为56.9M,
 - 使用Pyinstaller打包后报模块缺失，补上后项目大小为49.3M
 - 使用soeasypack的快速模式打包，项目大小为35M
-- 使用soeasypack的普通模式打包，项目大小为35M
+- 使用soeasypack的普通模式打包，项目大小为34.5M
 - 使用PythonSizeCruncher的安全模式对PyStand打包的项目瘦身后，项目大小为51.4M
 - 使用soeasypack的to_slim_file对PyStand打包的项目瘦身后，项目大小为36.5M
 - 使用soeasypack的to_slim_file对Pyinstaller打包的项目瘦身后,项目大小为36.6M
@@ -72,9 +72,5 @@ To install soeasypack, follow these steps:
       to_pyd(script_dir: str, script_dir_main_py: str, is_del_py: bool = False)
       ```
 - 如果你觉得对你有帮助的话，可以打赏1元让作者买个馍哦
-<div style="display: flex; justify-content: center; gap: 100px;">
-
-<img  alt="" style="width: 20%; height: auto;" src="https://github.com/XMQSVIP/MyImage/blob/main/wei.png?raw=true"/>
-<img alt="" style="width: 20%; height: auto;" src="https://github.com/XMQSVIP/MyImage/blob/main/zhi.jpg?raw=true"/>
-</div>
+![image](https://github.com/XMQSVIP/MyImage/blob/main/zhi_wei.png?raw=true)
 

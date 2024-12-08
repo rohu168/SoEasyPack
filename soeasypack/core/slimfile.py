@@ -67,8 +67,8 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, fast_mode
                 logging.error(f'未找到{image_path}')
                 sys.exit()
         else:
-            python_exe_path = str(Path(project_dir).joinpath('runtime\\python.exe')).replace('/', '\\')
-            pythonw_exe_path = str(Path(project_dir).joinpath('runtime\\pythonw.exe')).replace('/', '\\')
+            python_exe_path = str(Path(project_dir).joinpath('rundep\\python.exe')).replace('/', '\\')
+            pythonw_exe_path = str(Path(project_dir).joinpath('rundep\\pythonw.exe')).replace('/', '\\')
             if os.path.exists(python_exe_path):
                 main_run_cmd = [python_exe_path, main_run_path]
                 image_path = python_exe_path
@@ -76,7 +76,7 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, fast_mode
                 main_run_cmd = [pythonw_exe_path, main_run_path]
                 image_path = pythonw_exe_path
             else:
-                logging.warning(f'未找到{project_dir}/runtime文件夹中的python.exe，使用当前环境的python运行脚本')
+                logging.warning(f'未找到{project_dir}\\rundep文件夹中的python.exe，使用当前环境的python运行脚本')
                 main_run_cmd = [current_env_py, main_run_path]
 
     else:

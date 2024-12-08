@@ -55,7 +55,7 @@ func main() {
 		}
 	}
 	if mainFile == "" {
-		MessageBox("错误", currentDir+"rundep\\AppData,找不到 main.pyc(.py.pyw)文件")
+		MessageBox("错误", currentDir+"\\rundep\\AppData,找不到 main.pyc(.py.pyw)文件")
 		return
 	}
 

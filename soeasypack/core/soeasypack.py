@@ -56,7 +56,7 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
 
     else:
         logging.info("当前模式：普通模式")
-
+        logging.info("复制python环境...")
         dest = Path.joinpath(Path(save_dir), 'rundep')
 
         def ignore_files(directory, files):
@@ -166,10 +166,10 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
     shutil.rmtree(temp_build_dir)
 
 
-def py_to_pyc(dst_dir):
+def py_to_pyc(dest_dir):
     logging.info('开始将py文件转成pyc文件...')
     ready_remove_dirs = []
-    for root, dirs, files in os.walk(dst_dir):
+    for root, dirs, files in os.walk(dest_dir):
         if '__pycache__' in root:
             ready_remove_dirs.append(root)
             continue
@@ -187,7 +187,7 @@ def py_to_pyc(dst_dir):
 
 
 def to_pack(main_py_path: str = 'main.py', save_dir: str = None,
-            exe_name: str = 'main', png_path: str = '', hide_cmd: bool = False,
+            exe_name: str = 'main', png_path: str = '', hide_cmd: bool = True,
             fast_mode: bool = True, force_copy_env: bool = False, auto_py_pyd: bool = False,
             monitoring_time: int = 18, except_packages: list = None,
             **kwargs):
@@ -233,12 +233,12 @@ def to_pack(main_py_path: str = 'main.py', save_dir: str = None,
             copy_py_env(save_dir, main_py_path, fast_mode, monitoring_time, except_packages)
 
     new_main_py_path = copy_py_script(main_py_path, save_dir)
-
     if not fast_mode:
         to_slim_file(new_main_py_path, check_dir=rundep_dir, project_dir=save_dir, monitoring_time=monitoring_time)
 
+    script_dir = save_dir + '\\rundep\\AppData'
+    os.rename(new_main_py_path, os.path.join(script_dir, 'main.py'))
     if auto_py_pyd:
-        script_dir = save_dir + '\\rundep\\AppData'
         script_dir_main_py = os.path.join(script_dir, os.path.basename(main_py_path))
         to_pyd(script_dir, script_dir_main_py=script_dir_main_py)
 
