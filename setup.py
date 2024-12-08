@@ -1,3 +1,8 @@
+"""
+@author:xmqsvip
+Created on 2024-11-29
+"""
+
 from setuptools import setup, find_packages
 
 with open('README.md', encoding='utf-8')as fp:
@@ -14,13 +19,14 @@ setup(name='soeasypack',
       'soeasypack': ['dep_exe/**/*']},
       include_package_data=True,
       license='MIT',
-      version='0.6.3',
+      version='0.6.6',
       zip_safe=False,
       url = "https://github.com/XMQSVIP/SoEasyPack",
       classifiers=[
             'Programming Language :: Python :: 3',
       ],
-      #搜索词
       keywords="soeasypack,SoEasyPack",
       install_requires=["Cython"]
       )
+# python setup.py sdist
+# twine upload dist/*
