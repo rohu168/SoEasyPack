@@ -3,7 +3,7 @@
 - 此项目受[PyStand](https://github.com/skywind3000/PyStand "PyStand")和[PythonSizeCruncher](https://github.com/mengdeer589/PythonSizeCruncher "PythonSizeCruncher")启发。
 - 不需要复制嵌入式包，也不必再二次瘦身,一次打包理论上就是最小依赖
 - 用简易的方式复制你的python项目并自动精准匹配环境依赖，几乎没有什么多余文件，
-并且可以生成一个exe外壳（用go语言编译）作为程序入口启动项目。
+并且可以生成一个exe外壳（用go语言编译,已内置简化过的go环境）作为程序入口启动项目。
 - 原理：使用微软[procmon](https://learn.microsoft.com/en-us/sysinternals/downloads/procmon "procmon")进程监控工具，监控项目运行时访问的文件记录
 - 仅支持windows，且仅在windows10上测试过
 
@@ -19,7 +19,7 @@
 
 ## 安装
 
-To install soeasypack, follow these steps:
+soeasypack is available on PyPI. You can install it through pip::
 
 
 ```shell
