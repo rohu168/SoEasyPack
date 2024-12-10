@@ -49,7 +49,7 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
                 to_save_dir = os.path.dirname(dependency_file_)
                 os.makedirs(to_save_dir, exist_ok=True)
                 try:
-                    shutil.copy(dependency_file, to_save_dir)
+                    shutil.copyfile(dependency_file, to_save_dir)
                 except OSError:
                     pass
                     # logging.error(f'文件 {dependency_file} 复制失败')
@@ -95,8 +95,8 @@ def create_bat(save_dir):
     # 生成bat脚本
     main_py_relative_path = 'rundep/AppData/main.pyc'
     py_interpreter = 'rundep/python.exe'
-    bat_file_content = f'''start {py_interpreter} {main_py_relative_path}"
-    exit
+    bat_file_content = f'''@echo off
+    start /B "" {py_interpreter} {main_py_relative_path}"
     '''
     bat_path = Path.joinpath(Path(save_dir), 'run.bat')
     with open(bat_path, 'w', encoding='utf-8') as bat_file:
@@ -129,7 +129,15 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
     temp_build_dir = Path.joinpath(Path(save_dir), 'temp_build')
     os.makedirs(temp_build_dir, exist_ok=True)
     save_winres_json = Path.joinpath(temp_build_dir, "winres.json")
-    shutil.copyfile(go_py_path, Path.joinpath(temp_build_dir, 'go_py.go'))
+    dest_go_py_path = Path.joinpath(temp_build_dir, 'go_py.go')
+    shutil.copyfile(go_py_path, dest_go_py_path)
+    with open(dest_go_py_path, 'r+', encoding='utf-8') as fp:
+        go_code = fp.read()
+        fp.seek(0)
+        py_version = sys.version.replace('.', '', 1).split('.', 1)[0]
+        fp.write(go_code.replace('python3.dll', f'python{py_version}.dll'))
+        fp.truncate()
+
     if png_path and os.path.exists(png_path):
         copy_icon_path = Path.joinpath(temp_build_dir, f'{os.path.basename(png_path)}')
         shutil.copyfile(png_path, copy_icon_path)
@@ -139,7 +147,7 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
         icon_name = ''
 
     if not os.path.exists(save_winres_json):
-        shutil.copy(winres_json_path, save_winres_json)
+        shutil.copyfile(winres_json_path, save_winres_json)
         winres_json = json.load(open(winres_json_path, encoding='utf-8'))
         if icon_name:
             winres_json["RT_GROUP_ICON"]["APP"]["0000"].append(icon_name)
