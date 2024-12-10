@@ -135,6 +135,7 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
         shutil.copyfile(png_path, copy_icon_path)
         icon_name = os.path.basename(png_path)
     else:
+        logging.warning("未找到图标文件，将使用默认图标")
         icon_name = ''
 
     if not os.path.exists(save_winres_json):
@@ -186,13 +187,13 @@ def py_to_pyc(dest_dir):
         shutil.rmtree(i)
 
 
-def to_pack(main_py_path: str = 'main.py', save_dir: str = None,
+def to_pack(main_py_path: str, save_dir: str = None,
             exe_name: str = 'main', png_path: str = '', hide_cmd: bool = True,
             fast_mode: bool = True, force_copy_env: bool = False, auto_py_pyd: bool = False,
-            monitoring_time: int = 18, except_packages: list = None,
+            monitoring_time: int = 18, except_packages: [str] = None,
             **kwargs):
     """
-
+    :param except_packages:
     :param main_py_path:主入口py文件路径
     :param save_dir:打包保存目录(默认为桌面目录)
     :param exe_name:生成的exe文件名字
@@ -204,9 +205,8 @@ def to_pack(main_py_path: str = 'main.py', save_dir: str = None,
     快速打包模式会比普通模式大几兆
     :param force_copy_env: 强行每次复制python环境依赖包
     :param auto_py_pyd：知否把你的脚本转为pyd
-    :param create_exe: 是否生成exe
     :param monitoring_time: 监控工具运行时长（秒）
-    :param monitoring_time: 排除的第三方包名称
+    :param except_packages: 排除的第三方包名称
     :param kwargs:
     :return:
     """
@@ -239,9 +239,9 @@ def to_pack(main_py_path: str = 'main.py', save_dir: str = None,
     script_dir = save_dir + '\\rundep\\AppData'
     os.rename(new_main_py_path, os.path.join(script_dir, 'main.py'))
     if auto_py_pyd:
-        script_dir_main_py = os.path.join(script_dir, 'main.pyc')
+        script_dir_main_py = os.path.join(script_dir, 'main.py')
         try:
-            to_pyd(script_dir, script_dir_main_py=script_dir_main_py)
+            to_pyd(script_dir, script_dir_main_py=script_dir_main_py, is_del_py=True)
         except Exception as e:
             logging.error(f"转pyd出错：{e}")
 

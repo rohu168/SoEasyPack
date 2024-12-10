@@ -19,13 +19,13 @@ setup(name='soeasypack',
       'soeasypack': ['dep_exe/**/*']},
       include_package_data=True,
       license='MIT',
-      version='0.6.6',
+      version='0.6.7',
       zip_safe=False,
       url = "https://github.com/XMQSVIP/SoEasyPack",
       classifiers=[
             'Programming Language :: Python :: 3',
       ],
-      keywords="soeasypack,SoEasyPack",
+      keywords="soeasypack,SoEasyPack,packaging,pyinstaller,py2exe,cxfreeze",
       install_requires=["Cython"]
       )
 # python setup.py sdist
