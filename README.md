@@ -4,15 +4,15 @@
 - 不需要复制嵌入式包，也不必再二次瘦身,一次打包理论上就是最小依赖
 - 用简易的方式复制你的python项目并自动精准匹配环境依赖，几乎没有什么多余文件，
 并且可以生成一个exe外壳（用go语言编译,已内置简化过的go环境）作为程序入口启动项目。
-- 原理：使用微软[procmon](https://learn.microsoft.com/en-us/sysinternals/downloads/procmon "procmon")进程监控工具，监控项目运行时访问的文件记录
+- 原理：使用微软[procmon](https://learn.microsoft.com/en-us/sysinternals/downloads/procmon "procmon")进程监控工具（已内置），监控项目运行时访问的文件记录
 - 仅支持windows，且仅在windows10上测试过
 
 ## 一项目测试对比
  
 - 使用PyStand仅删除pip文件夹，项目大小为56.9M,
 - 使用Pyinstaller打包后报模块缺失，补上后项目大小为49.3M
-- 使用soeasypack的快速模式打包，项目大小为35M
-- 使用soeasypack的普通模式打包，项目大小为34.5M
+- 使用soeasypack的快速模式打包，项目大小为33.5M
+- 使用soeasypack的普通模式打包，项目大小为33.5M
 - 使用PythonSizeCruncher的安全模式对PyStand打包的项目瘦身后，项目大小为51.4M
 - 使用soeasypack的to_slim_file对PyStand打包的项目瘦身后，项目大小为36.5M
 - 使用soeasypack的to_slim_file对Pyinstaller打包的项目瘦身后,项目大小为36.6M
