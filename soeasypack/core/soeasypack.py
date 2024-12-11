@@ -98,8 +98,6 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
                     future.result()  # 获取结果，捕获任务中的异常
                 except Exception as e:
                     logging.error(f"复制线程出错: {e}")
-
-
     else:
         logging.info("当前模式：普通模式")
         logging.info("复制python环境...")
@@ -122,7 +120,8 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
 
         # # 复制 site-packages
         # # 排除复制site-packages其它打包工具
-        py_exclusions = ['pip', 'py2exe', 'Pyinstaller', 'cx_Freeze', 'nuitka', '__pycache__']
+        py_exclusions = ['__pycache__', 'pip*', 'py2exe*', 'Pyinstaller*', 'cx_Freeze*', 'nuitka*',
+                         'auto_py_to_exe*', 'soeasypack*']
         if except_packages:
             py_exclusions.extend(except_packages)
         ignore_func = partial(ignore_files, py_exclusions=py_exclusions)
@@ -238,9 +237,6 @@ def py_to_pyc(dest_dir):
     logging.info('开始将py文件转成pyc文件...')
     ready_remove_dirs = []
     for root, dirs, files in os.walk(dest_dir):
-        if '__pycache__' in root:
-            ready_remove_dirs.append(root)
-            continue
         for file in files:
             if file.endswith('.py'):
                 py_file = os.path.join(root, file)
