@@ -11,7 +11,10 @@ import subprocess
 import sys
 import shutil
 import logging
+import fnmatch
+from functools import partial
 from pathlib import Path
+from concurrent.futures import as_completed, ThreadPoolExecutor
 
 from .py_to_pyd import to_pyd
 from .slimfile import to_slim_file, check_dependency_files
@@ -19,6 +22,43 @@ from .slimfile import to_slim_file, check_dependency_files
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
+
+
+def copy_file(src, dest):
+    if not os.path.exists(dest):
+        shutil.copyfile(src, dest)
+
+
+# 复制目录的并行化版本
+def copytree_parallel(src, dest, ignore_func=None):
+    if not os.path.exists(dest):
+        os.makedirs(dest)
+
+    # 使用 ProcessPoolExecutor 实现并行复制文件
+    with ThreadPoolExecutor() as executor:
+        # 遍历源目录中的所有文件和目录
+        for root, dirs, files in os.walk(src):
+            # 获取相对于源目录的目标目录路径
+            dest_dir = os.path.join(dest, os.path.relpath(root, src))
+            if not os.path.exists(dest_dir):
+                os.makedirs(dest_dir)
+
+            # 过滤需要忽略的目录
+            dirs[:] = [d for d in dirs if not any(fnmatch.fnmatch(d, pattern) for pattern in ignore_func(root, dirs))]
+            # 过滤需要忽略的文件
+            files_to_copy = [f for f in files if f not in ignore_func(root, files)]
+
+            # 复制文件
+            futures = [
+                executor.submit(copy_file, os.path.join(root, file), os.path.join(dest_dir, file))
+                for file in files_to_copy
+            ]
+
+            for future in as_completed(futures):
+                try:
+                    future.result()  # 获取结果，捕获任务中的异常
+                except Exception as e:
+                    logging.error(f"复制线程出错: {e}")
 
 
 def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=18, except_packages=None):
@@ -43,47 +83,64 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
                                                   monitoring_time=monitoring_time, except_packages=except_packages)
         rundep_dir = str(Path.joinpath(Path(save_dir), 'rundep'))
         logging.info("复制python环境...")
-        for dependency_file in dependency_files:
-            dependency_file_ = dependency_file.replace(base_env_dir, rundep_dir).replace(current_env_dir, rundep_dir)
-            if os.path.exists(dependency_file):
-                to_save_dir = os.path.dirname(dependency_file_)
-                os.makedirs(to_save_dir, exist_ok=True)
+        with ThreadPoolExecutor() as executor:
+            futures = []
+            for dependency_file in dependency_files:
+                dependency_file_ = dependency_file.replace(base_env_dir, rundep_dir).replace(current_env_dir,
+                                                                                             rundep_dir)
+                if os.path.exists(dependency_file):
+                    to_save_dir = os.path.dirname(dependency_file_)
+                    os.makedirs(to_save_dir, exist_ok=True)
+                    futures.append(executor.submit(copy_file, dependency_file, dependency_file_))
+            # 等待所有复制任务完成
+            for future in as_completed(futures):
                 try:
-                    shutil.copyfile(dependency_file, to_save_dir)
-                except OSError:
-                    pass
-                    # logging.error(f'文件 {dependency_file} 复制失败')
+                    future.result()  # 获取结果，捕获任务中的异常
+                except Exception as e:
+                    logging.error(f"复制线程出错: {e}")
+
 
     else:
         logging.info("当前模式：普通模式")
         logging.info("复制python环境...")
         dest = Path.joinpath(Path(save_dir), 'rundep')
 
-        def ignore_files(directory, files):
-            # # 排除复制官方python无用的文件和文件夹
-            py_exclusions = ['Scripts', 'Doc', 'LICENSE', 'LICENSE.txt',
-                             'NEWS.txt', 'share', 'Tools', 'include', 'venv',
-                             'site-packages', 'test'
-                             ]
-            return [f for f in files if f in py_exclusions]
+        def ignore_files(src, names, py_exclusions):
+            ignored = []
+            for name in names:
+                if any(fnmatch.fnmatch(name, pattern) for pattern in py_exclusions):
+                    ignored.append(name)
+            return ignored
 
-        shutil.copytree(base_env_dir, dest, ignore=ignore_files, dirs_exist_ok=True)
+        # # 排除复制官方python无用的文件和文件夹
+        py_exclusions = ('Scripts', 'Doc', 'LICENSE', 'LICENSE.txt',
+                         'NEWS.txt', 'share', 'Tools', 'include', 'venv',
+                         'site-packages', 'test', '__pycache__'
+                         )
+        ignore_func = partial(ignore_files, py_exclusions=py_exclusions)
+        copytree_parallel(base_env_dir, dest, ignore_func)
 
-        # # 复制 site-packages 中的所有文件
-        lib_path = Path.joinpath(Path(current_env_dir), 'Lib/site-packages')
-        to_lib_path = Path.joinpath(Path(dest), 'Lib/site-packages')
-        shutil.copytree(lib_path, to_lib_path, dirs_exist_ok=True)
+        # # 复制 site-packages
+        # # 排除复制site-packages其它打包工具
+        py_exclusions = ['pip', 'py2exe', 'Pyinstaller', 'cx_Freeze', 'nuitka', '__pycache__'].extend(except_packages)
+        ignore_func = partial(ignore_files, py_exclusions=py_exclusions)
+
+        sp_path = Path.joinpath(Path(current_env_dir), 'Lib/site-packages')
+        to_sp_path = Path.joinpath(Path(dest), 'Lib/site-packages')
+        copytree_parallel(sp_path, to_sp_path, ignore_func)
 
     pyenv_file = Path.joinpath(Path(save_dir), 'rundep/pyvenv.cfg')
     if pyenv_file.exists():
         os.remove(pyenv_file)
+    scripts_dir = Path.joinpath(Path(save_dir), 'rundep/Scripts')
+    shutil.rmtree(scripts_dir, ignore_errors=True)
 
 
 def copy_py_script(main_py_path, save_dir):
     """
     复制用户脚本
     """
-    logging.info('复制你的脚本...')
+    logging.info('复制你的脚本目录...')
     script_dir = os.path.dirname(main_py_path)
     save_dir = Path.joinpath(Path(save_dir), 'rundep\\AppData')
     shutil.copytree(script_dir, save_dir, dirs_exist_ok=True)

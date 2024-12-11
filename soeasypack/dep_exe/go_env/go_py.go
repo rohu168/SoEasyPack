@@ -28,6 +28,7 @@ func MessageBox(title, message string) {
 		0,
 	)
 }
+
 func fileExists(filename string) bool {
 	_, err := os.Stat(filename)
 	if err != nil {
@@ -62,7 +63,7 @@ func main() {
 	// 加载 python3.dll
 	pythonDll, err := syscall.LoadDLL("rundep\\python3.dll")
 	if err != nil {
-		MessageBox("错误", "无法加载 python3.dll")
+		MessageBox("错误", "无法加载 python3.dll: "+err.Error())
 		return
 	}
 	defer pythonDll.Release()
@@ -70,7 +71,7 @@ func main() {
 	// 获取 Py_Main 函数的地址
 	pyMainProc, err := pythonDll.FindProc("Py_Main")
 	if err != nil {
-		MessageBox("错误", "无法找到 Py_Main 函数")
+		MessageBox("错误", "无法找到 Py_Main 函数: "+err.Error())
 		return
 	}
 
@@ -90,7 +91,7 @@ func main() {
 	argv := uintptr(unsafe.Pointer(&cArgs[0]))
 	ret, _, _ := pyMainProc.Call(uintptr(argc), argv)
 	if ret != 0 {
-		MessageBox("错误", "执行失败,cmd运行程序查看报错信息")
+		MessageBox("错误", "执行失败,cmd运行run.bat查看报错信息")
 	}
 
 	finalize, _ := pythonDll.FindProc("Py_Finalize")
