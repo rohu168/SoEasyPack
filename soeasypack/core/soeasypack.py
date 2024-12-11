@@ -122,7 +122,9 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
 
         # # 复制 site-packages
         # # 排除复制site-packages其它打包工具
-        py_exclusions = ['pip', 'py2exe', 'Pyinstaller', 'cx_Freeze', 'nuitka', '__pycache__'].extend(except_packages)
+        py_exclusions = ['pip', 'py2exe', 'Pyinstaller', 'cx_Freeze', 'nuitka', '__pycache__']
+        if except_packages:
+            py_exclusions.extend(except_packages)
         ignore_func = partial(ignore_files, py_exclusions=py_exclusions)
 
         sp_path = Path.joinpath(Path(current_env_dir), 'Lib/site-packages')
