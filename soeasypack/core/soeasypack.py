@@ -121,7 +121,7 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
         py_exclusions = ['__pycache__', 'pip*', '_distutils_hack', 'pkg_resources','setuptools*',
                          'distutils-precedence.pth', 'better_exceptions_hook.pth',
                          'py2exe*', 'Pyinstaller*', 'cx_Freeze*', 'nuitka*',
-                         'auto_py_to_exe*', 'soeasypack*']
+                         'auto_py_to_exe*', 'soeasypack*', 'typing_extensions*']
         if except_packages:
             py_exclusions.extend(except_packages)
         ignore_func = partial(ignore_files, py_exclusions=py_exclusions)
