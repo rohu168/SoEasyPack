@@ -118,8 +118,10 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
         copytree_parallel(base_env_dir, dest, ignore_func)
 
         # # 复制 site-packages
-        # # 排除复制site-packages其它打包工具
-        py_exclusions = ['__pycache__', 'pip*', 'py2exe*', 'Pyinstaller*', 'cx_Freeze*', 'nuitka*',
+        # # 排除复制site-packages其它无用文件
+        py_exclusions = ['__pycache__', 'pip*', '_distutils_hack', 'pkg_resources','setuptools*',
+                         'distutils-precedence.pth', 'better_exceptions_hook',
+                         'py2exe*', 'Pyinstaller*', 'cx_Freeze*', 'nuitka*',
                          'auto_py_to_exe*', 'soeasypack*']
         if except_packages:
             py_exclusions.extend(except_packages)
