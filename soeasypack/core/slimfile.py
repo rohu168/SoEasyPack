@@ -149,16 +149,14 @@ def get_dependency_list(csv_log_path, image_path=None, check_dir=None, fast_mode
             if isinstance(check_dir, list):
                 for row in csvreader:
                     cell_value = row[0]
-                    if row[1] == image_path and cell_value and os.path.isfile(cell_value):
+                    if row[1] == image_path and cell_value and os.path.isfile(cell_value) and ('__pycache__' not in cell_value):
                         if (check_dir[0] in cell_value) or (check_dir[1] in cell_value):
                             dependency_files.add(cell_value)
-
             else:
                 for row in csvreader:
                     cell_value = row[0]
-                    if row[1] == image_path and cell_value and os.path.isfile(cell_value) and (check_dir in cell_value):
+                    if row[1] == image_path and cell_value and os.path.isfile(cell_value) and (check_dir in cell_value) and ('__pycache__' not in cell_value):
                         dependency_files.add(cell_value)
-
         else:
             # 读取的是依赖文件清单表，跳过查找依赖文件
             for row in csvreader:

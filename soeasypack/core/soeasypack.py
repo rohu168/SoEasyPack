@@ -237,6 +237,9 @@ def py_to_pyc(dest_dir):
     logging.info('开始将py文件转成pyc文件...')
     ready_remove_dirs = []
     for root, dirs, files in os.walk(dest_dir):
+        if '__pycache__' in root:
+            ready_remove_dirs.append(root)
+            continue
         for file in files:
             if file.endswith('.py'):
                 py_file = os.path.join(root, file)
