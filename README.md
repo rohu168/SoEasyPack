@@ -6,16 +6,21 @@
 并且可以生成一个exe外壳（用go语言编译,已内置简化过的go环境）作为程序入口启动项目。
 - 原理：使用微软[procmon](https://learn.microsoft.com/en-us/sysinternals/downloads/procmon "procmon")进程监控工具（已内置），监控项目运行时访问的文件记录
 - 仅支持windows，且仅在windows10上测试过
-
-## 一项目测试对比
- 
-- 使用PyStand仅删除pip文件夹，项目大小为56.9M,
-- 使用Pyinstaller打包后报模块缺失，补上后项目大小为49.3M
-- 使用soeasypack的快速模式打包，项目大小为33.5M
-- 使用soeasypack的普通模式打包，项目大小为33.5M
 - 使用PythonSizeCruncher的安全模式对PyStand打包的项目瘦身后，项目大小为51.4M
-- 使用soeasypack的to_slim_file对PyStand打包的项目瘦身后，项目大小为36.5M
-- 使用soeasypack的to_slim_file对Pyinstaller打包的项目瘦身后,项目大小为36.6M
+## 一项目测试对比
+| 打包工具                     | 打包后大小 |
+|--------------------------|-------|
+| 使用nuitka打包               | 67.9M |
+| 使用PyStand仅删除pip文件夹       | 56.9M |
+| 使用Pyinstaller打包后模块缺失 补模块 | 49.3M |
+| 使用soeasypack的快速模式打包      | 33.5M |
+| 使用soeasypack的普通模式打包      | 33.5M |
+
+| 使用soeasypack的to_slim_file瘦身                                                 | 原体积大小    | 瘦身后大小    | 瘦身比例  |
+|------------------------------------------------------|------------|------------|-------|
+| 对nuitka打包的项目瘦身                 | 67.9M      | 54.8M      | 19.37% |
+| 对PyStand打包的项目瘦身               | 56.9M      | 36.5M      | 35.79% |
+| 对Pyinstaller打包的项目瘦身             | 49.3M      | 36.6M      | 25.52%|
 
 ## 安装
 
