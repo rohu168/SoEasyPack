@@ -45,6 +45,7 @@ soeasypack is available on PyPI. You can install it through pip::
 - 快速打包是先启动分析工具分析依赖文件。然后把依赖文件复制到保存目录，再自动生成exe, 没有项目瘦身这一步骤，
   所以没有虚拟环境的话，建议使用快速打包模式，它不会复制整个site-packages文件夹
 - **2**: 注意事项
+- 打包后soeasypack会将全部.py文件转为.pyc.不保留原.py文件。
 - 因360安全卫士会拦截procmon相关工具, 所以，打包前请先关闭360安全卫士。
 - 建议在虚拟环境中使用，非虚拟环境可能会打包无用的依赖(非虚拟环境测试项目：未使用numpy,但项目运行时不知为何访问了numpy,导致复制了这个无用的包)
 - 为了能完整记录依赖文件，监控工具启动后，会自动运行你的脚本，请对你的项目进行必要的操作：如点击运行按钮等，
@@ -52,7 +53,8 @@ soeasypack is available on PyPI. You can install it through pip::
   这样，监控工具才能监控到依赖文件，否则，最后的依赖文件记录不到，
   所以，请一定要注意，你的项目启动后，一定要默认监控时间18秒内执行必要的操作。
   18秒大概会产生几百兆的日志，所以，监控时间可以根据实际情况调整。
-       
+- 如果想制作单执行文件，推荐使用[Enigma Virtual Box](https://www.enigmaprotector.com/cn/downloads.html)工具打包成只有一个exe,  
+- 因.pyc可能会被反编译，建议使用soeasypack的py文件转pyd函数（好像需要先安装Visual Studio, 我自己之前安装的有，其它情况也没试）
 - **3**: 函数介绍
 
     - 1.打包项目
