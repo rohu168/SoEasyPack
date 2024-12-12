@@ -6,8 +6,7 @@
 并且可以生成一个exe外壳（用go语言编译,已内置简化过的go环境）作为程序入口启动项目。
 - 原理：使用微软[procmon](https://learn.microsoft.com/en-us/sysinternals/downloads/procmon "procmon")进程监控工具（已内置），监控项目运行时访问的文件记录
 - 仅支持windows，且仅在windows10上测试过
-- 使用PythonSizeCruncher的安全模式对PyStand打包的项目瘦身后，项目大小为51.4M
-## 一项目测试对比
+## 虚拟环境项目测试对比
 | 打包工具                     | 打包后大小 |
 |--------------------------|-------|
 | 使用nuitka打包               | 67.9M |
@@ -50,7 +49,7 @@ soeasypack is available on PyPI. You can install it through pip::
 - 建议在虚拟环境中使用，非虚拟环境可能会打包无用的依赖(非虚拟环境测试项目：未使用numpy,但项目运行时不知为何访问了numpy,导致复制了这个无用的包)
 - 为了能完整记录依赖文件，监控工具启动后，会自动运行你的脚本，请对你的项目进行必要的操作：如点击运行按钮等，
   如：我使用openpyxl往表格中插入图片，项目自动启动后，我要让脚本执行这一操作，
-  这样，监控工具才能监控到依赖文件，否则，最后的依赖文件记录不到，
+  这样，监控工具才能监控到依赖文件，否则最后虽然能启动项目但是插入图片时会报错，
   所以，请一定要注意，你的项目启动后，一定要默认监控时间18秒内执行必要的操作。
   18秒大概会产生几百兆的日志，所以，监控时间可以根据实际情况调整。
 - 如果想制作单执行文件，推荐使用[Enigma Virtual Box](https://www.enigmaprotector.com/cn/downloads.html)工具打包成只有一个exe,  
