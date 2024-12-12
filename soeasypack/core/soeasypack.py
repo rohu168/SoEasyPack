@@ -34,11 +34,8 @@ def copytree_parallel(src, dest, ignore_func=None):
     if not os.path.exists(dest):
         os.makedirs(dest)
 
-    # 使用 ProcessPoolExecutor 实现并行复制文件
     with ThreadPoolExecutor() as executor:
-        # 遍历源目录中的所有文件和目录
         for root, dirs, files in os.walk(src):
-            # 获取相对于源目录的目标目录路径
             dest_dir = os.path.join(dest, os.path.relpath(root, src))
             if not os.path.exists(dest_dir):
                 os.makedirs(dest_dir)
@@ -67,6 +64,8 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
     :param save_dir:
     :param main_run_path:
     :param fast_mode:
+    :param monitoring_time:
+    :param except_packages:
     :return:
     """
 
@@ -167,17 +166,16 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
               ):
     """
     使用go语言编译
-    :param main_py_path:
-    :param project_dir:
+    :param save_dir:
     :param hide_cmd:
     :param exe_name:
-    :param icon_path:
+    :param png_path:
     :param file_version:
-    :param product_version:
     :param product_name:
     :param company:
     :return:
     """
+
     logging.info('生成exe...')
     current_dir = Path(__file__).parent.parent
     go_exe_path = Path.joinpath(current_dir, 'dep_exe/go_env/bin/go.exe')
@@ -259,7 +257,6 @@ def to_pack(main_py_path: str, save_dir: str = None,
             monitoring_time: int = 18, except_packages: [str] = None,
             **kwargs):
     """
-    :param except_packages:
     :param main_py_path:主入口py文件路径
     :param save_dir:打包保存目录(默认为桌面目录)
     :param exe_name:生成的exe文件名字
