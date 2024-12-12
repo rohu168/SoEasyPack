@@ -34,28 +34,27 @@ def copytree_parallel(src, dest, ignore_func=None):
     if not os.path.exists(dest):
         os.makedirs(dest)
 
+    futures = []
     with ThreadPoolExecutor() as executor:
         for root, dirs, files in os.walk(src):
             dest_dir = os.path.join(dest, os.path.relpath(root, src))
             if not os.path.exists(dest_dir):
                 os.makedirs(dest_dir)
 
-            # 过滤需要忽略的目录
+            # 过滤需要忽略的目录和文件
             dirs[:] = [d for d in dirs if not any(fnmatch.fnmatch(d, pattern) for pattern in ignore_func(root, dirs))]
-            # 过滤需要忽略的文件
             files_to_copy = [f for f in files if f not in ignore_func(root, files)]
 
-            # 复制文件
-            futures = [
-                executor.submit(copy_file, os.path.join(root, file), os.path.join(dest_dir, file))
-                for file in files_to_copy
-            ]
+            for file in files_to_copy:
+                futures.append(executor.submit(copy_file, os.path.join(root, file), os.path.join(dest_dir, file)))
 
-            for future in as_completed(futures):
-                try:
-                    future.result()  # 获取结果，捕获任务中的异常
-                except Exception as e:
-                    logging.error(f"复制线程出错: {e}")
+    # 等待所有任务完成
+    for future in as_completed(futures):
+        try:
+            future.result()
+        except Exception as e:
+            logging.error(f"复制线程出错: {e}")
+
 
 
 def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=18, except_packages=None):
@@ -120,7 +119,7 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
         # # 复制 site-packages
         # # 排除复制site-packages其它无用文件
         py_exclusions = ['__pycache__', 'pip*', '_distutils_hack', 'pkg_resources','setuptools*',
-                         'distutils-precedence.pth', 'better_exceptions_hook',
+                         'distutils-precedence.pth', 'better_exceptions_hook.pth',
                          'py2exe*', 'Pyinstaller*', 'cx_Freeze*', 'nuitka*',
                          'auto_py_to_exe*', 'soeasypack*']
         if except_packages:
@@ -236,6 +235,8 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
 def py_to_pyc(dest_dir):
     logging.info('开始将py文件转成pyc文件...')
     ready_remove_dirs = []
+    ready_remove_files = []
+
     for root, dirs, files in os.walk(dest_dir):
         if '__pycache__' in root:
             ready_remove_dirs.append(root)
@@ -245,12 +246,18 @@ def py_to_pyc(dest_dir):
                 py_file = os.path.join(root, file)
                 try:
                     py_compile.compile(py_file, cfile=py_file + 'c', quiet=1, optimize=2)
-                    os.remove(py_file)
+                    ready_remove_files.append(py_file)
                 except Exception as e:
                     logging.error(f"{py_file} 转pyc时发生错误: {e}")
 
-    for i in ready_remove_dirs:
-        shutil.rmtree(i)
+
+    # 删除成功编译的py文件和__pycache__目录
+    for root in ready_remove_dirs:
+        shutil.rmtree(root)
+
+    for file in ready_remove_files:
+        os.remove(file)
+
 
 
 def to_pack(main_py_path: str, save_dir: str = None,
