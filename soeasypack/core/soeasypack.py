@@ -12,6 +12,7 @@ import sys
 import shutil
 import logging
 import fnmatch
+import time
 from functools import partial
 from pathlib import Path
 from concurrent.futures import as_completed, ThreadPoolExecutor
@@ -54,7 +55,6 @@ def copytree_parallel(src, dest, ignore_func=None):
             future.result()
         except Exception as e:
             logging.error(f"复制线程出错: {e}")
-
 
 
 def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=18, except_packages=None):
@@ -118,10 +118,10 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
 
         # # 复制 site-packages
         # # 排除复制site-packages其它无用文件
-        py_exclusions = ['__pycache__', 'pip*', '_distutils_hack', 'pkg_resources','setuptools*',
+        py_exclusions = ['__pycache__', 'pip*', '_distutils_hack', 'pkg_resources', 'setuptools*',
                          'distutils-precedence.pth', 'better_exceptions_hook.pth',
                          'py2exe*', 'Pyinstaller*', 'cx_Freeze*', 'nuitka*',
-                         'auto_py_to_exe*', 'soeasypack*', 'typing_extensions*']
+                         'auto_py_to_exe*', 'soeasypack*']
         if except_packages:
             py_exclusions.extend(except_packages)
         ignore_func = partial(ignore_files, py_exclusions=py_exclusions)
@@ -232,8 +232,8 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
     shutil.rmtree(temp_build_dir)
 
 
-def py_to_pyc(dest_dir):
-    logging.info('开始将py文件转成pyc文件...')
+def py_to_pyc(dest_dir, optimize):
+    logging.info(f'开始将py文件转成pyc文件, pyc优化级别:{optimize}')
     ready_remove_dirs = []
     ready_remove_files = []
 
@@ -245,11 +245,12 @@ def py_to_pyc(dest_dir):
             if file.endswith('.py'):
                 py_file = os.path.join(root, file)
                 try:
-                    py_compile.compile(py_file, cfile=py_file + 'c', quiet=1, optimize=2)
-                    ready_remove_files.append(py_file)
+                    py_compile.compile(py_file, cfile=py_file + 'c', quiet=1, optimize=optimize)
+                    if 'config' not in file:
+                        # # cv2会读取config.py文件
+                        ready_remove_files.append(py_file)
                 except Exception as e:
                     logging.error(f"{py_file} 转pyc时发生错误: {e}")
-
 
     # 删除成功编译的py文件和__pycache__目录
     for root in ready_remove_dirs:
@@ -259,10 +260,11 @@ def py_to_pyc(dest_dir):
         os.remove(file)
 
 
-
 def to_pack(main_py_path: str, save_dir: str = None,
             exe_name: str = 'main', png_path: str = '', hide_cmd: bool = True,
-            fast_mode: bool = True, force_copy_env: bool = False, auto_py_pyd: bool = False,
+            fast_mode: bool = True, force_copy_env: bool = False,
+            auto_py_pyc: bool = True, pyc_optimize: int = 2,
+            auto_py_pyd: bool = False,
             monitoring_time: int = 18, except_packages: [str] = None,
             **kwargs):
     """
@@ -276,7 +278,13 @@ def to_pack(main_py_path: str, save_dir: str = None,
     因为会复制整个site-packages文件夹，所以不建议在非虚拟环境使用，
     快速打包模式会比普通模式大几兆
     :param force_copy_env: 强行每次复制python环境依赖包
-    :param auto_py_pyd：知否把你的脚本转为pyd
+    :param auto_py_pyc：知否把所有py转为pyc
+    :param pyc_optimize: pyc优化级别，
+    -1：使用当前解释器的优化级别，
+    0：没有优化，
+    1：进行一些基本的优化。这会使得生成的 .pyc 文件比没有优化的版本更小，并且可能运行得更快
+    2：进行更多的优化。这会进一步减小 .pyc 文件的大小，并可能提高运行速度。但是，如numpy可能不可用，因为一些名称和文档字符串可能会被优化掉
+    :param auto_py_pyd：知否把你的脚本目录中py转为pyd
     :param monitoring_time: 监控工具运行时长（秒）
     :param except_packages: 排除的第三方包名称
     :param kwargs:
@@ -316,8 +324,8 @@ def to_pack(main_py_path: str, save_dir: str = None,
             to_pyd(script_dir, script_dir_main_py=script_dir_main_py, is_del_py=True)
         except Exception as e:
             logging.error(f"转pyd出错：{e}")
-
-    py_to_pyc(rundep_dir)
+    if auto_py_pyc:
+        py_to_pyc(rundep_dir, pyc_optimize)
     create_bat(save_dir)
     build_exe(save_dir, hide_cmd, exe_name, png_path, **kwargs)
     logging.info('完成')

@@ -82,7 +82,8 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, fast_mode
     else:
         main_run_cmd = main_run_path
         image_path = main_run_path
-
+        
+    os.chdir(os.path.dirname(main_run_path))
     logging.info(f"启动你的程序:{main_run_path}")
     main_run_process = subprocess.Popen(main_run_cmd)
     time.sleep(monitoring_time)

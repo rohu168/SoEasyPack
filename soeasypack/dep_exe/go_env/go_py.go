@@ -45,11 +45,12 @@ func main() {
 	// 获取当前目录并设置 PYTHONHOME
 	currentDir, _ := os.Getwd()
 	os.Setenv("PYTHONHOME", currentDir+"\\rundep")
+	// 切换当前工作目录
+	os.Chdir(currentDir+"\\rundep\\AppData")
 	//获取程序主入口文件
 	mianFiles := []string{"main.pyc", "main.py", "main.pyw"}
 	var mainFile string
 	for _, file := range mianFiles {
-		file = "rundep\\AppData\\" + file
 		if fileExists(file) {
 			mainFile = file
 			break
@@ -61,7 +62,7 @@ func main() {
 	}
 
 	// 加载 python3.dll
-	pythonDll, err := syscall.LoadDLL("rundep\\python3.dll")
+	pythonDll, err := syscall.LoadDLL(currentDir+"\\rundep\\python3.dll")
 	if err != nil {
 		MessageBox("错误", "无法加载 python3.dll: "+err.Error())
 		return

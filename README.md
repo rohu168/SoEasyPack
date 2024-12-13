@@ -6,7 +6,7 @@
 并且可以生成一个exe外壳（用go语言编译,已内置简化过的go环境）作为程序入口启动项目。
 - 原理：使用微软[procmon](https://learn.microsoft.com/en-us/sysinternals/downloads/procmon "procmon")进程监控工具（已内置），监控项目运行时访问的文件记录
 - 仅支持windows，且仅在windows10上测试过
-## 虚拟环境项目测试对比
+## 虚拟环境打包大小对比
 | 打包工具                     | 打包后大小 |
 |--------------------------|-------|
 | 使用nuitka打包               | 67.9M |
@@ -15,11 +15,11 @@
 | 使用soeasypack的快速模式打包      | 33.5M |
 | 使用soeasypack的普通模式打包      | 33.5M |
 
-| 使用soeasypack的to_slim_file瘦身                                                 | 原体积大小    | 瘦身后大小    | 瘦身比例  |
-|------------------------------------------------------|------------|------------|-------|
-| 对nuitka打包的项目瘦身                 | 67.9M      | 54.8M      | 19.37% |
-| 对PyStand打包的项目瘦身               | 56.9M      | 36.5M      | 35.79% |
-| 对Pyinstaller打包的项目瘦身             | 49.3M      | 36.6M      | 25.52%|
+| 使用soeasypack的to_slim_file瘦身  | 原体积大小      | 瘦身后大小    | 瘦身比例  |
+|---------------------------------|------------|------------|-------|
+| 对nuitka打包的项目瘦身             | 67.9M      | 54.8M      | 19.37% |
+| 对PyStand打包的项目瘦身            | 56.9M      | 36.5M      | 35.79% |
+| 对Pyinstaller打包的项目瘦身        | 49.3M      | 36.6M      | 25.52%|
 
 ## 安装
 
@@ -44,7 +44,7 @@ soeasypack is available on PyPI. You can install it through pip::
 - 快速打包是先启动分析工具分析依赖文件。然后把依赖文件复制到保存目录，再自动生成exe, 没有项目瘦身这一步骤，
   所以没有虚拟环境的话，建议使用快速打包模式，它不会复制整个site-packages文件夹
 - **2**: 注意事项
-- 打包后soeasypack会将全部.py文件转为.pyc.不保留原.py文件。
+- 默认会将全部.py文件转为.pyc.不保留原.py文件，优化级别默认使用为最高级别2，一些名称和文档字符串可能会被优化掉导致报错，如numpy报错可调为0或1。
 - 因360安全卫士会拦截procmon相关工具, 所以，打包前请先关闭360安全卫士。
 - 建议在虚拟环境中使用，非虚拟环境可能会打包无用的依赖(非虚拟环境测试项目：未使用numpy,但项目运行时不知为何访问了numpy,导致复制了这个无用的包)
 - 为了能完整记录依赖文件，监控工具启动后，会自动运行你的脚本，请对你的项目进行必要的操作：如点击运行按钮等，
@@ -64,7 +64,7 @@ soeasypack is available on PyPI. You can install it through pip::
           save_dir = r'C:\save_dir'
           main_py_path = r'C:\my_project\main.py'
           exe_name = '大都督'
-          to_pack(main_py_path, save_dir, exe_name=exe_name, auto_py_pyd=True) 
+          to_pack(main_py_path, save_dir, exe_name=exe_name, auto_py_pyd=True, pyc_optimize=1) 
       ```
     - 2.项目瘦身
       ```python
