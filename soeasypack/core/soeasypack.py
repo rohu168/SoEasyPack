@@ -8,12 +8,14 @@ Created on 2024-11-29
 import json
 import os
 import py_compile
+import random
+import string
 import subprocess
 import sys
 import shutil
 import logging
 import fnmatch
-import time
+import zipfile
 from functools import partial
 from pathlib import Path
 from concurrent.futures import as_completed, ThreadPoolExecutor
@@ -85,9 +87,6 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
         with ThreadPoolExecutor() as executor:
             futures = []
             for dependency_file in dependency_files:
-                # dependency_file_ = dependency_file.replace(base_env_dir, rundep_dir).replace(current_env_dir,
-                #                                                                                  rundep_dir)
-                # dependency_file_ = dependency_file.replace(base_env_dir, rundep_dir).replace(current_env_dir,
                 if dependency_file[:len(base_env_dir)].lower() == base_env_dir.lower():
                     dependency_file_ = rundep_dir + dependency_file[len(base_env_dir):]
                 else:
@@ -142,6 +141,17 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
         os.remove(pyenv_file)
     scripts_dir = Path.joinpath(Path(save_dir), 'rundep/Scripts')
     shutil.rmtree(scripts_dir, ignore_errors=True)
+    hmac_path = Path.joinpath(Path(base_env_dir), '/Lib/hmac.py')
+    secrets_path = Path.joinpath(Path(base_env_dir), '/Lib/secrets.py')
+    shared_memory_path = Path.joinpath(Path(base_env_dir), '/Lib/multiprocessing/shared_memory.py')
+
+    to_hmac_path = Path.joinpath(Path(save_dir), 'rundep/Lib/hmac.py')
+    to_secrets_path = Path.joinpath(Path(save_dir), 'rundep/Lib/secrets.py')
+    to_shared_memory_path = Path.joinpath(Path(save_dir), 'rundep/Lib/multiprocessing/shared_memory.py')
+
+    shutil.copyfile(hmac_path, to_hmac_path)
+    shutil.copyfile(secrets_path, to_secrets_path)
+    shutil.copyfile(shared_memory_path, to_shared_memory_path)
 
 
 def copy_py_script(main_py_path, save_dir):
@@ -170,6 +180,7 @@ def create_bat(save_dir):
 
 
 def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path: str = '',
+              embed_exe: bool = False, onefile: bool = False,
               file_version: str = '', product_name: str = '', company: str = '',
               ):
     """
@@ -187,20 +198,69 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
     logging.info('生成exe...')
     current_dir = Path(__file__).parent.parent
     go_exe_path = Path.joinpath(current_dir, 'dep_exe/go_env/bin/go.exe')
-    go_py_path = Path.joinpath(current_dir, 'dep_exe/go_env/go_py.go')
     winres_path = Path.joinpath(current_dir, 'dep_exe/go_env/go-winres.exe')
     winres_json_path = Path.joinpath(current_dir, 'dep_exe/go_env/winres.json')
     temp_build_dir = Path.joinpath(Path(save_dir), 'temp_build')
     os.makedirs(temp_build_dir, exist_ok=True)
     save_winres_json = Path.joinpath(temp_build_dir, "winres.json")
     dest_go_py_path = Path.joinpath(temp_build_dir, 'go_py.go')
-    shutil.copyfile(go_py_path, dest_go_py_path)
-    with open(dest_go_py_path, 'r+', encoding='utf-8') as fp:
-        go_code = fp.read()
-        fp.seek(0)
-        py_version = sys.version.replace('.', '', 1).split('.', 1)[0]
-        fp.write(go_code.replace('python3.dll', f'python{py_version}.dll'))
-        fp.truncate()
+    if onefile:
+        embed_exe = True
+
+    if embed_exe:
+        go_py_path = Path.joinpath(current_dir, 'dep_exe/go_env/go_py_embed.go')
+        main_py_path = Path.joinpath(Path(save_dir), 'rundep/AppData/main.pyc')
+        with open(main_py_path, mode='rb')as fp:
+            main_py_code = fp.read()
+            main_py_code_hex = main_py_code.hex()
+        letters = string.ascii_letters + string.digits
+        sm_name = ''.join([random.choices(letters)[0] for _ in range(8)])
+        if onefile:
+            all_zip_path = Path.joinpath(temp_build_dir, 'rundep.zip')
+            rundep_dir = Path.joinpath(Path(save_dir), 'rundep')
+            with zipfile.ZipFile(all_zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for root, dirs, files in os.walk(rundep_dir):
+                    for file in files:
+                        if 'AppData' in root and file.endswith('.pyc'):
+                            continue
+                        else:
+                            full_path = os.path.join(root, file)
+                            archive_name = os.path.relpath(full_path, start=rundep_dir)
+                            zipf.write(full_path, arcname=archive_name)
+        # # 修改go代码
+        shutil.copyfile(go_py_path, dest_go_py_path)
+        with open(dest_go_py_path, 'r+', encoding='utf-8')as fp:
+            go_code = fp.read()
+            fp.seek(0)
+            py_version = sys.version.replace('.', '', 1).split('.', 1)[0]
+            edited_go_code = (go_code.replace('python3.dll', f'python{py_version}.dll').
+                replace('main_pycode', main_py_code_hex).
+                replace('MySharedMemory', sm_name))
+            if onefile:
+                edited_go_code = (edited_go_code.replace('embed soeasypack.zip',
+                                'embed soeasypack.zip rundep.zip').
+                                  replace('var onefile bool = false', 'var onefile bool = true'))
+            fp.write(edited_go_code)
+            fp.truncate()
+        # # 生成zip归档
+        zip_path = Path.joinpath(temp_build_dir, 'soeasypack.zip')
+        app_data_dir = Path.joinpath(Path(save_dir), 'rundep/AppData')
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for root, dirs, files in os.walk(app_data_dir):
+                for file in files:
+                    if file.endswith('.pyc'):
+                        full_path = os.path.join(root, file)
+                        archive_name = os.path.relpath(full_path, start=app_data_dir)
+                        zipf.write(full_path, arcname=archive_name)
+    else:
+        go_py_path = Path.joinpath(current_dir, 'dep_exe/go_env/go_py.go')
+        shutil.copyfile(go_py_path, dest_go_py_path)
+        with open(dest_go_py_path, 'r+', encoding='utf-8') as fp:
+            go_code = fp.read()
+            fp.seek(0)
+            py_version = sys.version.replace('.', '', 1).split('.', 1)[0]
+            fp.write(go_code.replace('python3.dll', f'python{py_version}.dll'))
+            fp.truncate()
 
     if png_path and os.path.exists(png_path):
         copy_icon_path = Path.joinpath(temp_build_dir, f'{os.path.basename(png_path)}')
@@ -237,6 +297,7 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
     build_process.wait()
     os.chdir(save_dir)
     shutil.rmtree(temp_build_dir)
+    os.remove(main_py_path)
 
 
 def py_to_pyc(dest_dir, optimize):
@@ -262,7 +323,6 @@ def py_to_pyc(dest_dir, optimize):
     # 删除成功编译的py文件和__pycache__目录
     for root in ready_remove_dirs:
         shutil.rmtree(root)
-
     for file in ready_remove_files:
         os.remove(file)
 
@@ -271,7 +331,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
             exe_name: str = 'main', png_path: str = '', hide_cmd: bool = True,
             fast_mode: bool = True, force_copy_env: bool = False,
             auto_py_pyc: bool = True, pyc_optimize: int = 2,
-            auto_py_pyd: bool = False,
+            auto_py_pyd: bool = False, embed_exe: bool = False, onefile: bool = False,
             monitoring_time: int = 18, except_packages: [str] = None,
             **kwargs):
     """
@@ -292,6 +352,8 @@ def to_pack(main_py_path: str, save_dir: str = None,
     1：进行一些基本的优化。这会使得生成的 .pyc 文件比没有优化的版本更小，并且可能运行得更快
     2：进行更多的优化。这会进一步减小 .pyc 文件的大小，并可能提高运行速度。但是，如numpy可能不可用，因为一些名称和文档字符串可能会被优化掉
     :param auto_py_pyd：知否把你的脚本目录中py转为pyd
+    :param embed_exe: 是否把用户.pyc脚本嵌入exe中
+    :param onefile: 是否生成只有一个exe
     :param monitoring_time: 监控工具运行时长（秒）
     :param except_packages: 排除的第三方包名称
     :param kwargs:
@@ -331,8 +393,9 @@ def to_pack(main_py_path: str, save_dir: str = None,
             to_pyd(script_dir, script_dir_main_py=script_dir_main_py, is_del_py=True)
         except Exception as e:
             logging.error(f"转pyd出错：{e}")
-    if auto_py_pyc:
+    if auto_py_pyc or embed_exe or onefile:
         py_to_pyc(rundep_dir, pyc_optimize)
     create_bat(save_dir)
-    build_exe(save_dir, hide_cmd, exe_name, png_path, **kwargs)
-    logging.info('完成')
+    build_exe(save_dir, hide_cmd, exe_name, png_path, embed_exe=embed_exe, onefile=onefile, **kwargs)
+
+    logging.info('结束')
