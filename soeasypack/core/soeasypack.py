@@ -4,6 +4,7 @@
 Created on 2024-11-29
 """
 
+
 import json
 import os
 import py_compile
@@ -68,8 +69,8 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
     :return:
     """
 
-    base_env_dir = str(sys.base_prefix)
-    current_env_dir = str(sys.prefix)
+    base_env_dir = str(sys.base_prefix).replace('\\', '/')
+    current_env_dir = str(sys.prefix).replace('\\', '/')
     if current_env_dir == base_env_dir:
         is_go = input(f"当前你的环境：非虚拟环境，{current_env_dir}, 若继续操作，请输入Y或y：")
         if is_go.lower() != 'y':
@@ -79,13 +80,19 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
         logging.info("当前模式：快速模式")
         dependency_files = check_dependency_files(main_run_path, save_dir, fast_mode=fast_mode,
                                                   monitoring_time=monitoring_time, except_packages=except_packages)
-        rundep_dir = str(Path.joinpath(Path(save_dir), 'rundep'))
+        rundep_dir = str(Path.joinpath(Path(save_dir), 'rundep')).replace('\\', '/')
         logging.info("复制python环境...")
         with ThreadPoolExecutor() as executor:
             futures = []
             for dependency_file in dependency_files:
-                dependency_file_ = dependency_file.replace(base_env_dir, rundep_dir).replace(current_env_dir,
-                                                                                             rundep_dir)
+                # dependency_file_ = dependency_file.replace(base_env_dir, rundep_dir).replace(current_env_dir,
+                #                                                                                  rundep_dir)
+                # dependency_file_ = dependency_file.replace(base_env_dir, rundep_dir).replace(current_env_dir,
+                if dependency_file[:len(base_env_dir)].lower() == base_env_dir.lower():
+                    dependency_file_ = rundep_dir + dependency_file[len(base_env_dir):]
+                else:
+                    dependency_file_ = rundep_dir + dependency_file[len(current_env_dir):]
+
                 if os.path.exists(dependency_file):
                     to_save_dir = os.path.dirname(dependency_file_)
                     os.makedirs(to_save_dir, exist_ok=True)
@@ -143,7 +150,7 @@ def copy_py_script(main_py_path, save_dir):
     """
     logging.info('复制你的脚本目录...')
     script_dir = os.path.dirname(main_py_path)
-    save_dir = Path.joinpath(Path(save_dir), 'rundep\\AppData')
+    save_dir = Path.joinpath(Path(save_dir), 'rundep/AppData')
     shutil.copytree(script_dir, save_dir, dirs_exist_ok=True)
     new_main_py_path = os.path.join(save_dir, os.path.basename(main_py_path))
     return new_main_py_path
@@ -297,10 +304,10 @@ def to_pack(main_py_path: str, save_dir: str = None,
 
     if not save_dir:
         # 获取桌面目录
-        save_dir = Path.joinpath(Path.home(), 'Desktop\\SoEasyPack')
+        save_dir = Path.joinpath(Path.home(), 'Desktop/SoEasyPack')
     os.makedirs(save_dir, exist_ok=True)
 
-    rundep_dir = str(save_dir) + '\\rundep'
+    rundep_dir = str(save_dir) + '/rundep'
     if force_copy_env:
         logging.info('强制复制环境')
         if os.path.exists(rundep_dir):
@@ -316,7 +323,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
     if not fast_mode:
         to_slim_file(new_main_py_path, check_dir=rundep_dir, project_dir=save_dir, monitoring_time=monitoring_time)
 
-    script_dir = save_dir + '\\rundep\\AppData'
+    script_dir = save_dir + '/rundep/AppData'
     os.rename(new_main_py_path, os.path.join(script_dir, 'main.py'))
     if auto_py_pyd:
         script_dir_main_py = os.path.join(script_dir, 'main.py')

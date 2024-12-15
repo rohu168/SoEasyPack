@@ -65,7 +65,7 @@ soeasypack is available on PyPI. You can install it through pip::
           save_dir = r'C:\save_dir'
           main_py_path = r'C:\my_project\main.py'
           exe_name = '大都督'
-          to_pack(main_py_path, save_dir, exe_name=exe_name, auto_py_pyd=True, pyc_optimize=1) 
+          to_pack(main_py_path, save_dir, exe_name=exe_name,  pyc_optimize=1) 
       ```
     - 2.项目瘦身
       ```python
