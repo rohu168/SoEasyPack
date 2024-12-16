@@ -245,7 +245,7 @@ exec(compiled_code, globals_)
 `, mainPyCode)
 
 	// 加载 python3.dll
-	pythonDll, err := windows.LoadDLL(currentDir + "\\python38.dll")
+	pythonDll, err := windows.LoadDLL(currentDir + "\\python3.dll")
 	if err != nil {
 		MessageBox("错误", "无法加载 python3.dll: "+err.Error())
 		return
@@ -282,7 +282,5 @@ exec(compiled_code, globals_)
 	finalize.Call()
 
 	os.Chdir(cDir)
-
-	os.RemoveAll(currentDir)
 
 }
