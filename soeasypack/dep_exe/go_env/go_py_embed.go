@@ -1,7 +1,8 @@
 /*
  * @Author: xmqsvip
- * @Date: 2024-12-07
- * @LastEditTime: 2024-12-15 22:38:08
+ * @Date: 2024-12-15
+ * @go version:1.23.4
+
  */
 
 package main
@@ -14,9 +15,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"syscall"
-	"time"
 	"unsafe"
+
+	"windows"
 )
 
 //go:embed soeasypack.zip
@@ -25,20 +26,17 @@ var onefile bool = false
 var mainPyCode string = `main_pycode`
 
 func MessageBox(title, message string) {
-	msgBox := syscall.MustLoadDLL("user32.dll")
-	defer msgBox.Release()
-	proc := msgBox.MustFindProc("MessageBoxW")
+	user32, _ := windows.LoadDLL("user32.dll")
 
-	// 处理 UTF16PtrFromString 的返回值
-	titlePtr, _ := syscall.UTF16PtrFromString(title)
-	messagePtr, _ := syscall.UTF16PtrFromString(message)
+	defer user32.Release()
 
-	proc.Call(
-		0,
-		uintptr(unsafe.Pointer(messagePtr)),
-		uintptr(unsafe.Pointer(titlePtr)),
-		0,
-	)
+	proc := user32.MustFindProc("MessageBoxW")
+
+	titlePtr, _ := windows.UTF16PtrFromString(title)
+
+	messagePtr, _ := windows.UTF16PtrFromString(message)
+
+	proc.Call(0, uintptr(unsafe.Pointer(messagePtr)), uintptr(unsafe.Pointer(titlePtr)), 0)
 }
 
 func fileExists(filename string) bool {
@@ -51,43 +49,40 @@ func fileExists(filename string) bool {
 	}
 	return true
 }
-func createSharedMemory() (syscall.Handle, uintptr) {
-
+func createSharedMemory() (windows.Handle, uintptr) {
 	zipData, err := embedZip.ReadFile("soeasypack.zip")
 	if err != nil {
 		MessageBox("错误", "找不到zipData:"+err.Error())
 		return 0, 0
 	}
 
-	// 共享内存的大小根据数据大小动态设置
 	memSize := len(zipData)
 	name := "MySharedMemory"
 
-	// 创建安全属性并允许继承句柄
-	securityAttrs := &syscall.SecurityAttributes{
-		Length:        uint32(unsafe.Sizeof(syscall.SecurityAttributes{})),
-		InheritHandle: 1, // 允许子进程继承句柄
+	securityAttrs := &windows.SecurityAttributes{
+		Length:        uint32(unsafe.Sizeof(windows.SecurityAttributes{})),
+		InheritHandle: 1,
 	}
 
-	// 创建共享内存区域，大小为数据的大小
-	namePtr, _ := syscall.UTF16PtrFromString(name)
-	handle, err := syscall.CreateFileMapping(syscall.InvalidHandle, securityAttrs, syscall.PAGE_READWRITE, 0, uint32(memSize), namePtr)
+	namePtr, err := windows.UTF16PtrFromString(name)
+	if err != nil {
+		MessageBox("错误", "UTF16PtrFromString 错误: "+err.Error())
+		return 0, 0
+	}
+
+	handle, err := windows.CreateFileMapping(windows.InvalidHandle, securityAttrs, windows.PAGE_READWRITE, 0, uint32(memSize), namePtr)
 	if err != nil {
 		MessageBox("错误", "创建共享内存失败:"+err.Error())
 		return 0, 0
 	}
-	// defer syscall.CloseHandle(handle)
 
-	// 映射共享内存到当前进程的地址空间
-	addr, err := syscall.MapViewOfFile(handle, syscall.FILE_MAP_WRITE, 0, 0, uintptr(memSize))
+	addr, err := windows.MapViewOfFile(handle, windows.FILE_MAP_WRITE, 0, 0, uintptr(memSize))
 	if err != nil {
+		windows.CloseHandle(handle)
 		MessageBox("错误", "映射共享内存到当前进程的地址空间失败:"+err.Error())
 		return 0, 0
 	}
-	// defer syscall.UnmapViewOfFile(addr)
 
-	// 将嵌入的数据写入共享内存
-	// 通过切片直接访问共享内存的缓冲区，避免 1024 字节的硬编码
 	copy((*[1 << 30]byte)(unsafe.Pointer(addr))[:memSize], zipData)
 	return handle, addr
 }
@@ -159,7 +154,7 @@ func main() {
 
 		// 解压zip文件到临时目录
 		if err := extractZip(zipReader, int64(len(zipData)), currentDir); err != nil {
-			MessageBox("错误", "解压数据失败: "+err.Error())
+			MessageBox("错误", "解压数据到临时目录失败: "+err.Error())
 			return
 		}
 	} else {
@@ -168,8 +163,8 @@ func main() {
 	}
 
 	handle, addr := createSharedMemory()
-	defer syscall.CloseHandle(handle)
-	defer syscall.UnmapViewOfFile(addr)
+	defer windows.CloseHandle(handle)
+	defer windows.UnmapViewOfFile(addr)
 
 	os.Setenv("PYTHONHOME", currentDir)
 	// 切换当前工作目录
@@ -183,7 +178,7 @@ import importlib.abc
 import importlib.util
 import zipfile
 from io import BytesIO, BufferedReader
-import time
+
 
 class ZipMemoryLoader(importlib.abc.MetaPathFinder, importlib.abc.Loader):
 	def __init__(self, zip_data):
@@ -250,7 +245,7 @@ exec(compiled_code, globals_)
 `, mainPyCode)
 
 	// 加载 python3.dll
-	pythonDll, err := syscall.LoadDLL(currentDir + "\\python38.dll")
+	pythonDll, err := windows.LoadDLL(currentDir + "\\python38.dll")
 	if err != nil {
 		MessageBox("错误", "无法加载 python3.dll: "+err.Error())
 		return
@@ -270,7 +265,7 @@ exec(compiled_code, globals_)
 	// 将命令行参数转换为 C 字符串
 	var cArgs []uintptr
 	for _, arg := range args {
-		arg_, _ := syscall.UTF16PtrFromString(arg)
+		arg_, _ := windows.UTF16PtrFromString(arg)
 		cArgs = append(cArgs, uintptr(unsafe.Pointer(arg_)))
 	}
 
@@ -279,31 +274,15 @@ exec(compiled_code, globals_)
 	argv := uintptr(unsafe.Pointer(&cArgs[0]))
 	ret, _, _ := pyMainProc.Call(uintptr(argc), argv)
 	if ret != 0 {
-		MessageBox("错误", "执行失败,cmd运行run.bat查看报错信息")
+		MessageBox("错误", "执行失败, cmd 运行 run.bat 查看报错信息")
 	}
 
 	// 确保 Python 环境被正确清理
-	finalize, err := pythonDll.FindProc("Py_Finalize")
-	if err != nil {
-		fmt.Println("失败", err)
-	} else {
-		finalize.Call()
-	}
+	finalize, _ := pythonDll.FindProc("Py_FinalizeEx")
+	finalize.Call()
 
-	// 等待一段时间以确保所有资源被释放
-	time.Sleep(time.Second * 3)
 	os.Chdir(cDir)
-	// 如果是单文件模式，尝试删除临时目录
-	pythonDll.Release()
-	syscall.CloseHandle(handle)
-	syscall.UnmapViewOfFile(addr)
-	time.Sleep(time.Second * 3)
-	if onefile {
-		err = os.RemoveAll(currentDir)
-		if err != nil {
-			fmt.Println("删除失败", err)
-		} else {
-			fmt.Println("成功删除临时文件夹")
-		}
-	}
+
+	os.RemoveAll(currentDir)
+
 }

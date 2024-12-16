@@ -1,7 +1,7 @@
 """
 简易打包
 @author: xmqsvip
-Created on 2024-11-29
+Created on 2024-11-30
 """
 
 
@@ -189,6 +189,8 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
     :param hide_cmd:
     :param exe_name:
     :param png_path:
+    :param embed_exe:
+    :param onefile:
     :param file_version:
     :param product_name:
     :param company:
@@ -238,8 +240,8 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
                 replace('MySharedMemory', sm_name))
             if onefile:
                 edited_go_code = (edited_go_code.replace('embed soeasypack.zip',
-                                'embed soeasypack.zip rundep.zip').
-                                  replace('var onefile bool = false', 'var onefile bool = true'))
+                                'embed soeasypack.zip rundep.zip', 1).
+                                  replace('onefile bool = false', 'onefile bool = true', 1))
             fp.write(edited_go_code)
             fp.truncate()
         # # 生成zip归档
@@ -285,7 +287,12 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
 
     os.chdir(temp_build_dir)
     with open('go.mod', mode='w', encoding='utf-8') as fp:
-        fp.write("module go_py\n\ngo 1.23")
+        go_require = '''
+module go_py
+go 1.23
+
+'''
+        fp.write(go_require)
 
     pro = subprocess.Popen(f'{winres_path} make --in {save_winres_json}')
     pro.wait()
@@ -296,8 +303,7 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
     build_process = subprocess.Popen(command)
     build_process.wait()
     os.chdir(save_dir)
-    shutil.rmtree(temp_build_dir)
-    os.remove(main_py_path)
+    # shutil.rmtree(temp_build_dir)
 
 
 def py_to_pyc(dest_dir, optimize):
