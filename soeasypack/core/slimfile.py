@@ -109,7 +109,7 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, fast_mode
         time.sleep(1)
 
     dependency_files = get_dependency_list(csv_log_path, image_path, check_dir, fast_mode)
-    # # 排除用户指定的第三方无用包
+    # # 排除用户指定的第三方依赖包
     if except_packages:
         ready_remove_list = []
         for i in dependency_files:
@@ -166,6 +166,7 @@ def get_dependency_list(csv_log_path, image_path=None, check_dir=None, fast_mode
             # 读取的是依赖文件清单表，跳过查找依赖文件
             for row in csvreader:
                 dependency_files.add(row[0])
+
     return dependency_files
 
 

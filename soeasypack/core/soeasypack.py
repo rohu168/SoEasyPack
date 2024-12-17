@@ -60,7 +60,7 @@ def copytree_parallel(src, dest, ignore_func=None):
             logging.error(f"复制线程出错: {e}")
 
 
-def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=18, except_packages=None):
+def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=18, except_packages=None, embed_exe=False):
     """
     复制 Python环境依赖
     :param save_dir:
@@ -74,10 +74,10 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
     base_env_dir = str(sys.base_prefix).replace('\\', '/')
     current_env_dir = str(sys.prefix).replace('\\', '/')
     if current_env_dir == base_env_dir:
-        is_go = input(f"当前你的环境：非虚拟环境，{current_env_dir}, 若继续操作，请输入Y或y：")
+        is_go = input(f"当前你的环境：非虚拟环境，{current_env_dir}, 可能会打包无用的依赖文件！若继续操作，请输入Y或y：")
         if is_go.lower() != 'y':
             sys.exit()
-        logging.warning("非虚拟环境可能会打包无用的依赖文件！")
+
     if fast_mode:
         logging.info("当前模式：快速模式")
         dependency_files = check_dependency_files(main_run_path, save_dir, fast_mode=fast_mode,
@@ -141,20 +141,30 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
         os.remove(pyenv_file)
     scripts_dir = Path.joinpath(Path(save_dir), 'rundep/Scripts')
     shutil.rmtree(scripts_dir, ignore_errors=True)
-    hmac_path = Path.joinpath(Path(base_env_dir), 'Lib/hmac.py')
-    secrets_path = Path.joinpath(Path(base_env_dir), 'Lib/secrets.py')
-    shared_memory_path = Path.joinpath(Path(base_env_dir), 'Lib/multiprocessing/shared_memory.py')
+    if embed_exe:
+        # # 复制运行嵌入exe所需依赖项
+        py_files = ('hmac', 'secrets', 'struct', 'base64', 'warnings', 'hashlib', 'random',
+                    'bisect', 'contextlib', 'zipfile', 'posixpath', 'shutil', 'fnmatch', 'threading',
+                    '_weakrefset')
+        for py_file in py_files:
+            to_save_path = Path.joinpath(Path(save_dir), f"rundep/Lib/{py_file}.py")
+            if not os.path.exists(to_save_path):
+                py_file_path = Path.joinpath(Path(base_env_dir), f"Lib/{py_file}.py")
+                shutil.copyfile(py_file_path, to_save_path)
 
-    to_hmac_path = Path.joinpath(Path(save_dir), 'rundep/Lib/hmac.py')
-    to_secrets_path = Path.joinpath(Path(save_dir), 'rundep/Lib/secrets.py')
-    multiprocessing_dir = Path.joinpath(Path(save_dir), 'rundep/Lib/multiprocessing')
-    os.makedirs(multiprocessing_dir, exist_ok=True)
-    to_shared_memory_path = Path.joinpath(multiprocessing_dir, 'shared_memory.py')
+        encodings_cp437_path = Path.joinpath(Path(base_env_dir), 'Lib/encodings/cp437.py')
+        to_cp437_path = Path.joinpath(Path(save_dir), f"rundep/Lib/encodings/cp437.py")
+        shutil.copyfile(encodings_cp437_path, to_cp437_path)
 
-    shutil.copyfile(hmac_path, to_hmac_path)
-    shutil.copyfile(secrets_path, to_secrets_path)
-    shutil.copyfile(shared_memory_path, to_shared_memory_path)
+        multiprocessing_dir = Path.joinpath(Path(save_dir), 'rundep/Lib/multiprocessing')
+        os.makedirs(multiprocessing_dir, exist_ok=True)
+        shared_memory_path = Path.joinpath(Path(base_env_dir), 'Lib/multiprocessing/shared_memory.py')
+        to_shared_memory_path = Path.joinpath(multiprocessing_dir, 'shared_memory.py')
+        shutil.copyfile(shared_memory_path, to_shared_memory_path)
 
+        importlib_dir = Path.joinpath(Path(base_env_dir), 'Lib/importlib')
+        to_importlib_dir = Path.joinpath(Path(save_dir), 'rundep/Lib/importlib')
+        shutil.copytree(importlib_dir, to_importlib_dir, dirs_exist_ok=True)
 
 def copy_py_script(main_py_path, save_dir):
     """
@@ -222,7 +232,7 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
         if onefile:
             all_zip_path = Path.joinpath(temp_build_dir, 'rundep.zip')
             rundep_dir = Path.joinpath(Path(save_dir), 'rundep')
-            with zipfile.ZipFile(all_zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            with zipfile.ZipFile(all_zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zipf:
                 for root, dirs, files in os.walk(rundep_dir):
                     for file in files:
                         if 'AppData' in root and file.endswith('.pyc'):
@@ -249,7 +259,7 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
         # # 生成zip归档
         zip_path = Path.joinpath(temp_build_dir, 'soeasypack.zip')
         app_data_dir = Path.joinpath(Path(save_dir), 'rundep/AppData')
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zipf:
             for root, dirs, files in os.walk(app_data_dir):
                 for file in files:
                     if file.endswith('.pyc'):
@@ -338,7 +348,7 @@ def py_to_pyc(dest_dir, optimize):
 def to_pack(main_py_path: str, save_dir: str = None,
             exe_name: str = 'main', png_path: str = '', hide_cmd: bool = True,
             fast_mode: bool = True, force_copy_env: bool = False,
-            auto_py_pyc: bool = True, pyc_optimize: int = 2,
+            auto_py_pyc: bool = True, pyc_optimize: int = 1,
             auto_py_pyd: bool = False, embed_exe: bool = False, onefile: bool = False,
             monitoring_time: int = 18, except_packages: [str] = None,
             **kwargs):
@@ -382,12 +392,12 @@ def to_pack(main_py_path: str, save_dir: str = None,
         logging.info('强制复制环境')
         if os.path.exists(rundep_dir):
             shutil.rmtree(rundep_dir)
-        copy_py_env(save_dir, main_py_path, fast_mode, monitoring_time, except_packages)
+        copy_py_env(save_dir, main_py_path, fast_mode, monitoring_time, except_packages, embed_exe)
     else:
         if os.path.exists(rundep_dir):
             logging.info('rundep文件夹已存在，跳过环境复制')
         else:
-            copy_py_env(save_dir, main_py_path, fast_mode, monitoring_time, except_packages)
+            copy_py_env(save_dir, main_py_path, fast_mode, monitoring_time, except_packages, embed_exe)
 
     new_main_py_path = copy_py_script(main_py_path, save_dir)
     if not fast_mode:
