@@ -14,8 +14,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"syscall"
 	"time"
 	"unsafe"
 	"windows"
@@ -24,91 +24,8 @@ import (
 //go:embed soeasypack.zip
 var embedZip embed.FS
 var onefile bool = false
+var packmode int = 0
 var mainPyCode string = `main_pycode`
-
-type PYIContext struct {
-	ApplicationHomeDir string
-}
-
-func forceUnloadBundledDLLs(ctx *PYIContext) int {
-	processHandle := windows.CurrentProcess()
-	var loadedDLLs []windows.Handle
-	sizeNeeded := uint32(0)
-	if err := windows.EnumProcessModules(processHandle, nil, 0, &sizeNeeded); err != nil {
-		return 0
-	}
-
-	numModules := int(sizeNeeded / uint32(unsafe.Sizeof(windows.Handle(0))))
-	loadedDLLs = make([]windows.Handle, numModules)
-	if err := windows.EnumProcessModules(processHandle, &loadedDLLs[0], sizeNeeded, &sizeNeeded); err != nil {
-		return 0
-	}
-
-	applicationHomeDir := syscall.StringToUTF16(ctx.ApplicationHomeDir)
-	applicationHomeDirLen := len(applicationHomeDir)
-	problematicDLLs := make([]windows.Handle, 0)
-
-	for _, dll := range loadedDLLs {
-		dllPath := make([]uint16, windows.MAX_PATH)
-		if err := windows.GetModuleFileNameEx(processHandle, dll, &dllPath[0], uint32(len(dllPath))); err != nil {
-			continue
-		}
-
-		// Compare paths manually
-		match := true
-		for i := 0; i < applicationHomeDirLen && i < len(dllPath); i++ {
-			if applicationHomeDir[i] != dllPath[i] {
-				match = false
-				break
-			}
-		}
-		if match {
-			problematicDLLs = append(problematicDLLs, dll)
-		}
-	}
-
-	unloadedDLLs := 0
-	for _, dll := range problematicDLLs {
-		attempts := 0
-		for attempts < 32 {
-			if err := windows.FreeLibrary(dll); err == nil {
-				unloadedDLLs++
-				break
-			}
-			attempts++
-		}
-	}
-
-	return unloadedDLLs
-}
-
-func mitigateLockedTemporaryDirectory(ctx *PYIContext) int {
-	maxAttempts := 15
-	delay := time.Second
-
-	unloadedDLLs := forceUnloadBundledDLLs(ctx)
-	if unloadedDLLs > 0 {
-		if removeTemporaryDirectory(ctx.ApplicationHomeDir) {
-			return 0
-		}
-	}
-
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		time.Sleep(delay)
-		if removeTemporaryDirectory(ctx.ApplicationHomeDir) {
-			return 0
-		}
-	}
-
-	return -1
-}
-
-func removeTemporaryDirectory(path string) bool {
-	// Placeholder function for directory removal logic.
-	// Implement your recursive directory removal logic here.
-	fmt.Printf("Attempting to remove directory: %s\n", path)
-	return true
-}
 
 func MessageBox(title, message string) {
 	user32, _ := windows.LoadDLL("user32.dll")
@@ -217,6 +134,30 @@ func extractZip(zipReader io.ReaderAt, size int64, dest string) error {
 }
 func main() {
 	cDir, _ := os.Getwd()
+	if packmode == 2 {
+		isExist := fileExists(cDir + "\\rundep\\compiled_pip.txt")
+		if !isExist {
+			MessageBox("提示", "依赖包不全，将准备自动下载依赖包")
+			os.Chdir(cDir + "\\rundep")
+			cmd := exec.Command("cmd", "/c", "python.exe -m pip install -r AppData\\requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple")
+			// 捕获标准输出和标准错误
+			var stdout, stderr bytes.Buffer
+			cmd.Stdout = &stdout
+			cmd.Stderr = &stderr
+
+			err := cmd.Run()
+
+			if err != nil {
+				MessageBox("提示", "安装依赖包失败:"+err.Error()+"\n"+stderr.String())
+				os.Exit(0)
+			} else {
+				f, _ := os.Create(cDir + "\\rundep\\compiled_pip.txt")
+				f.Close()
+			}
+		}
+
+	}
+
 	var currentDir string
 	if onefile {
 		// 创建临时目录
@@ -253,7 +194,7 @@ func main() {
 
 	os.Setenv("PYTHONHOME", currentDir)
 	// 切换当前工作目录
-	os.Chdir(currentDir + "\\AppData")
+	os.Chdir(currentDir)
 
 	pyCode := fmt.Sprintf(`
 import sys
@@ -381,28 +322,26 @@ exec(compiled_code, globals_)
 
 	os.Chdir(cDir)
 	pythonDll.Release()
-	for i := 0; i < 20; i++ {
-		kernel32 := windows.NewLazySystemDLL("kernel32.dll")
-		procFreeLibrary := kernel32.NewProc("FreeLibrary")
-		procFreeLibrary.Call(uintptr(pythonDll.Handle))
-		time.Sleep(time.Millisecond * 1000)
-	}
 
-	fmt.Println("清除临时目录...")
-	ctx := &PYIContext{
-		ApplicationHomeDir: currentDir,
-	}
-	result := mitigateLockedTemporaryDirectory(ctx)
-	if result == 0 {
-		fmt.Println("临时目录 removed successfully.")
-	} else {
-		fmt.Println("移除临时目录失败")
-	}
-	err = os.RemoveAll(currentDir)
-	if err != nil {
-		fmt.Println("删除文件失败:", err)
-	} else {
-		fmt.Println("成功删除文件")
+	kernel32 := windows.NewLazySystemDLL("kernel32.dll")
+	procFreeLibrary := kernel32.NewProc("FreeLibrary")
+	procFreeLibrary.Call(uintptr(pythonDll.Handle))
+
+	if onefile {
+		// 因无法释放pythonXX.dll,会有残留，所以使用任务计划再次删除临时目录
+		taskName := "DeleteTempDirTask"
+		command := fmt.Sprintf(`cmd /b /c rd /s /q "%s"`, currentDir) // 删除目录的命令
+		runTime := time.Now().Add(1 * time.Minute).Format("15:04:05") // 格式为 HH:mm
+
+		// 创建任务
+		exec.Command("schtasks", "/Create",
+			"/TN", taskName, // 任务名称
+			"/TR", command, // 执行的命令
+			"/SC", "ONCE", // 一次性任务
+			"/ST", runTime, // 执行时间
+			"/F", // 强制覆盖已有任务
+		).Run()
+
 	}
 
 }

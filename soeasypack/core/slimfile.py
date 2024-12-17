@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO,
                     datefmt='%Y-%m-%d %H:%M:%S')
 
 
-def check_dependency_files(main_run_path, project_dir, check_dir=None, fast_mode=False,
+def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode=0,
                            monitoring_time=18, except_packages=None):
     """
     检查依赖文件
@@ -30,7 +30,7 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, fast_mode
     procmon_log_path = Path(project_dir).joinpath('procmon_log.pml')
     csv_log_path = Path(project_dir).joinpath('procmon_log.csv')
     dependency_file_csv = Path(project_dir).joinpath("dependency.csv")
-    if fast_mode:
+    if pack_mode == 0:
         dependency_file_csv = Path(project_dir).joinpath("dependency_fast.csv")
     if dependency_file_csv.exists():
         logging.info('已存在依赖文件清单表，跳过依赖文件检查')
@@ -60,7 +60,7 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, fast_mode
 
     # 启动你的脚本
     if 'py' in str(Path(main_run_path).suffix):
-        if fast_mode:
+        if pack_mode == 0:
             main_run_cmd = [current_env_py, main_run_path]
             if not os.path.exists(image_path):
                 logging.error(f'未找到{image_path}')
@@ -108,7 +108,7 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, fast_mode
             break
         time.sleep(1)
 
-    dependency_files = get_dependency_list(csv_log_path, image_path, check_dir, fast_mode)
+    dependency_files = get_dependency_list(csv_log_path, image_path, check_dir, pack_mode)
     # # 排除用户指定的第三方依赖包
     if except_packages:
         ready_remove_list = []
@@ -132,9 +132,9 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, fast_mode
     return dependency_files
 
 
-def get_dependency_list(csv_log_path, image_path=None, check_dir=None, fast_mode=False):
+def get_dependency_list(csv_log_path, image_path=None, check_dir=None, pack_mode=0):
     logging.info('开始分析依赖文件...')
-    if fast_mode:
+    if pack_mode == 0:
         base_env_dir = sys.base_prefix.lower().replace('\\', '/')
         current_env_dir = sys.prefix.lower().replace('\\', '/')
         if base_env_dir == current_env_dir:

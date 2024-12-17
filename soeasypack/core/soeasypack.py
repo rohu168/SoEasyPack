@@ -4,7 +4,6 @@
 Created on 2024-11-30
 """
 
-
 import json
 import os
 import py_compile
@@ -18,6 +17,7 @@ import fnmatch
 import zipfile
 from functools import partial
 from pathlib import Path
+from typing import Literal
 from concurrent.futures import as_completed, ThreadPoolExecutor
 
 from .py_to_pyd import to_pyd
@@ -60,12 +60,12 @@ def copytree_parallel(src, dest, ignore_func=None):
             logging.error(f"复制线程出错: {e}")
 
 
-def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=18, except_packages=None, embed_exe=False):
+def copy_py_env(save_dir, main_run_path=None, pack_mode=0, monitoring_time=18, except_packages=None, embed_exe=False):
     """
     复制 Python环境依赖
     :param save_dir:
     :param main_run_path:
-    :param fast_mode:
+    :param pack_mode:
     :param monitoring_time:
     :param except_packages:
     :return:
@@ -78,9 +78,9 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
         if is_go.lower() != 'y':
             sys.exit()
 
-    if fast_mode:
+    if pack_mode == 0:
         logging.info("当前模式：快速模式")
-        dependency_files = check_dependency_files(main_run_path, save_dir, fast_mode=fast_mode,
+        dependency_files = check_dependency_files(main_run_path, save_dir, pack_mode=pack_mode,
                                                   monitoring_time=monitoring_time, except_packages=except_packages)
         rundep_dir = str(Path.joinpath(Path(save_dir), 'rundep')).replace('\\', '/')
         logging.info("复制python环境...")
@@ -103,7 +103,10 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
                 except Exception as e:
                     logging.error(f"复制线程出错: {e}")
     else:
-        logging.info("当前模式：普通模式")
+        if pack_mode == 1:
+            logging.info("当前模式：普通模式")
+        else:
+            logging.info("当前模式：轻量模式")
         logging.info("复制python环境...")
         dest = Path.joinpath(Path(save_dir), 'rundep')
 
@@ -121,20 +124,26 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
                          )
         ignore_func = partial(ignore_files, py_exclusions=py_exclusions)
         copytree_parallel(base_env_dir, dest, ignore_func)
+        if pack_mode == 1:
+            # # 复制 site-packages
+            # # 排除复制site-packages其它无用文件
+            py_exclusions = ['__pycache__', 'pip*', '_distutils_hack', 'pkg_resources', 'setuptools*',
+                             'distutils-precedence.pth', 'better_exceptions_hook.pth',
+                             'py2exe*', 'Pyinstaller*', 'cx_Freeze*', 'nuitka*',
+                             'auto_py_to_exe*', 'soeasypack*']
+            if except_packages:
+                py_exclusions.extend(except_packages)
+            ignore_func = partial(ignore_files, py_exclusions=py_exclusions)
 
-        # # 复制 site-packages
-        # # 排除复制site-packages其它无用文件
-        py_exclusions = ['__pycache__', 'pip*', '_distutils_hack', 'pkg_resources', 'setuptools*',
-                         'distutils-precedence.pth', 'better_exceptions_hook.pth',
-                         'py2exe*', 'Pyinstaller*', 'cx_Freeze*', 'nuitka*',
-                         'auto_py_to_exe*', 'soeasypack*']
-        if except_packages:
-            py_exclusions.extend(except_packages)
-        ignore_func = partial(ignore_files, py_exclusions=py_exclusions)
-
-        sp_path = Path.joinpath(Path(current_env_dir), 'Lib/site-packages')
-        to_sp_path = Path.joinpath(Path(dest), 'Lib/site-packages')
-        copytree_parallel(sp_path, to_sp_path, ignore_func)
+            sp_path = Path.joinpath(Path(current_env_dir), 'Lib/site-packages')
+            to_sp_path = Path.joinpath(Path(dest), 'Lib/site-packages')
+            copytree_parallel(sp_path, to_sp_path, ignore_func)
+        else:
+            for py_package in ('pip', 'pkg_resources', 'setuptools', '_distutils_hack'):
+                sp_path = Path.joinpath(Path(base_env_dir), f'Lib/site-packages/{py_package}')
+                to_sp_path = Path.joinpath(Path(save_dir), f'rundep/Lib/site-packages/{py_package}')
+                os.makedirs(to_sp_path, exist_ok=True)
+                shutil.copytree(sp_path, to_sp_path, dirs_exist_ok=True)
 
     pyenv_file = Path.joinpath(Path(save_dir), 'rundep/pyvenv.cfg')
     if pyenv_file.exists():
@@ -166,6 +175,7 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
         to_importlib_dir = Path.joinpath(Path(save_dir), 'rundep/Lib/importlib')
         shutil.copytree(importlib_dir, to_importlib_dir, dirs_exist_ok=True)
 
+
 def copy_py_script(main_py_path, save_dir):
     """
     复制用户脚本
@@ -192,8 +202,8 @@ def create_bat(save_dir):
 
 
 def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path: str = '',
-              embed_exe: bool = False, onefile: bool = False,
-              file_version: str = '', product_name: str = '', company: str = '',
+              embed_exe: bool = False, onefile: bool = False, pack_mode=0,
+              file_version: str = '', product_name: str = '', company: str = '', uac: bool = False,
               ):
     """
     使用go语言编译
@@ -220,11 +230,12 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
     dest_go_py_path = Path.joinpath(temp_build_dir, 'go_py.go')
     if onefile:
         embed_exe = True
+        uac = True
 
     if embed_exe:
         go_py_path = Path.joinpath(current_dir, 'dep_exe/go_env/go_py_embed.go')
         main_py_path = Path.joinpath(Path(save_dir), 'rundep/AppData/main.pyc')
-        with open(main_py_path, mode='rb')as fp:
+        with open(main_py_path, mode='rb') as fp:
             main_py_code = fp.read()
             main_py_code_hex = main_py_code.hex()
         letters = string.ascii_letters + string.digits
@@ -243,17 +254,19 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
                             zipf.write(full_path, arcname=archive_name)
         # # 修改go代码
         shutil.copyfile(go_py_path, dest_go_py_path)
-        with open(dest_go_py_path, 'r+', encoding='utf-8')as fp:
+        with open(dest_go_py_path, 'r+', encoding='utf-8') as fp:
             go_code = fp.read()
             fp.seek(0)
             py_version = sys.version.replace('.', '', 1).split('.', 1)[0]
             edited_go_code = (go_code.replace('python3.dll', f'python{py_version}.dll').
-                replace('main_pycode', main_py_code_hex).
-                replace('MySharedMemory', sm_name))
+                              replace('main_pycode', main_py_code_hex).
+                              replace('MySharedMemory', sm_name))
             if onefile:
                 edited_go_code = (edited_go_code.replace('embed soeasypack.zip',
-                                'embed soeasypack.zip rundep.zip', 1).
+                                                         'embed soeasypack.zip rundep.zip', 1).
                                   replace('onefile bool = false', 'onefile bool = true', 1))
+            elif pack_mode == 2:
+                edited_go_code = (edited_go_code.replace('var packmode int = 0', 'var packmode int = 2', 1))
             fp.write(edited_go_code)
             fp.truncate()
         # # 生成zip归档
@@ -295,6 +308,8 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
             winres_json["RT_VERSION"]["#1"]["0000"]["info"]["0409"]["ProductName"] = product_name
         if company:
             winres_json["RT_VERSION"]["#1"]["0000"]["info"]["0409"]["CompanyName"] = company
+        if uac:
+            winres_json["RT_MANIFEST"]["#1"]["0409"]["execution-level"] = "requireAdministrator"
         json.dump(winres_json, open(save_winres_json, 'w', encoding='utf-8'), indent=4)
 
     os.chdir(temp_build_dir)
@@ -315,7 +330,7 @@ go 1.23
     build_process = subprocess.Popen(command)
     build_process.wait()
     os.chdir(save_dir)
-    # shutil.rmtree(temp_build_dir)
+    shutil.rmtree(temp_build_dir)
 
 
 def py_to_pyc(dest_dir, optimize):
@@ -347,10 +362,10 @@ def py_to_pyc(dest_dir, optimize):
 
 def to_pack(main_py_path: str, save_dir: str = None,
             exe_name: str = 'main', png_path: str = '', hide_cmd: bool = True,
-            fast_mode: bool = True, force_copy_env: bool = False,
+            pack_mode: Literal[0, 1, 2] = 0, force_copy_env: bool = False,
             auto_py_pyc: bool = True, pyc_optimize: int = 1,
             auto_py_pyd: bool = False, embed_exe: bool = False, onefile: bool = False,
-            monitoring_time: int = 18, except_packages: [str] = None,
+            monitoring_time: int = 18, uac: bool = False, requirements_path: str = '', except_packages: [str] = None,
             **kwargs):
     """
     :param main_py_path:主入口py文件路径
@@ -358,10 +373,10 @@ def to_pack(main_py_path: str, save_dir: str = None,
     :param exe_name:生成的exe文件名字
     :param png_path: exe图标路径
     :param hide_cmd:是否显示控制台窗口
-    :param fast_mode:快速打包模式：监控分析依赖文件，然后复制依赖，不用再瘦身，适合非虚拟环境（虚拟环境也可）。
-    普通模式：先复制python环境依赖包，然后监控分析依赖文件，再进行项目瘦身,会保存被移除的文件，
+    :param pack_mode:0/快速打包模式：监控分析依赖文件，然后复制依赖，不用再瘦身，适合非虚拟环境（虚拟环境也可）。
+    1/普通模式：先复制python环境依赖包，然后监控分析依赖文件，再进行项目瘦身,会保存被移除的文件，
     因为会复制整个site-packages文件夹，所以不建议在非虚拟环境使用，
-    快速打包模式会比普通模式大几兆
+    2/轻量模式，不复制site-packages文件夹，第一次启动程序自动pip下载依赖包
     :param force_copy_env: 强行每次复制python环境依赖包
     :param auto_py_pyc：知否把所有py转为pyc
     :param pyc_optimize: pyc优化级别，
@@ -373,11 +388,16 @@ def to_pack(main_py_path: str, save_dir: str = None,
     :param embed_exe: 是否把用户.pyc脚本嵌入exe中
     :param onefile: 是否生成只有一个exe
     :param monitoring_time: 监控工具运行时长（秒）
+    :param uac: 以管理员身份运行
+    :param requirements_path: 轻量模式的依赖清单表路径
     :param except_packages: 排除的第三方包名称
     :param kwargs:
     :return:
     """
 
+    if pack_mode not in (0, 1, 2):
+        logging.error('pack_mode参数值只限于0, 1, 2')
+        return
     if not os.path.exists(main_py_path):
         logging.error(f'未找到{main_py_path}，请检查路径')
         return
@@ -386,25 +406,46 @@ def to_pack(main_py_path: str, save_dir: str = None,
         # 获取桌面目录
         save_dir = Path.joinpath(Path.home(), 'Desktop/SoEasyPack')
     os.makedirs(save_dir, exist_ok=True)
+    if onefile:
+        embed_exe = True
+        uac = True
+    if pack_mode == 2:
+        embed_exe = True
+        onefile = False
+        if (not requirements_path) or (not os.path.exists(requirements_path)):
+            logging.error(f'未找到依赖包文件：{requirements_path}')
+            sys.exit()
 
     rundep_dir = str(save_dir) + '/rundep'
     if force_copy_env:
         logging.info('强制复制环境')
         if os.path.exists(rundep_dir):
             shutil.rmtree(rundep_dir)
-        copy_py_env(save_dir, main_py_path, fast_mode, monitoring_time, except_packages, embed_exe)
+        copy_py_env(save_dir, main_py_path, pack_mode, monitoring_time, except_packages, embed_exe)
     else:
         if os.path.exists(rundep_dir):
             logging.info('rundep文件夹已存在，跳过环境复制')
         else:
-            copy_py_env(save_dir, main_py_path, fast_mode, monitoring_time, except_packages, embed_exe)
+            copy_py_env(save_dir, main_py_path, pack_mode, monitoring_time, except_packages, embed_exe)
 
     new_main_py_path = copy_py_script(main_py_path, save_dir)
-    if not fast_mode:
+    if pack_mode == 1:
         to_slim_file(new_main_py_path, check_dir=rundep_dir, project_dir=save_dir, monitoring_time=monitoring_time)
+    elif pack_mode == 2:
+        logging.info("复制requirements.txt")
+        if requirements_path:
+            save_requirements_path = Path.joinpath(Path(save_dir), 'rundep/AppData/requirements.txt')
+            if save_requirements_path.exists():
+                os.remove(save_requirements_path)
+            shutil.copyfile(requirements_path, save_requirements_path)
+        else:
+            logging.error(f'未找到依赖包文件：{requirements_path}')
+            sys.exit()
 
+    # # 把用户主程序重命名为mian.py
     script_dir = save_dir + '/rundep/AppData'
     os.rename(new_main_py_path, os.path.join(script_dir, 'main.py'))
+
     if auto_py_pyd:
         script_dir_main_py = os.path.join(script_dir, 'main.py')
         try:
@@ -414,6 +455,6 @@ def to_pack(main_py_path: str, save_dir: str = None,
     if auto_py_pyc or embed_exe or onefile:
         py_to_pyc(rundep_dir, pyc_optimize)
     create_bat(save_dir)
-    build_exe(save_dir, hide_cmd, exe_name, png_path, embed_exe=embed_exe, onefile=onefile, **kwargs)
+    build_exe(save_dir, hide_cmd, exe_name, png_path, embed_exe=embed_exe, onefile=onefile, uac=uac, pack_mode=pack_mode, **kwargs)
 
     logging.info('结束')
