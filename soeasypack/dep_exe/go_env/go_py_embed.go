@@ -15,8 +15,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"syscall"
+	"time"
 	"unsafe"
-
 	"windows"
 )
 
@@ -24,6 +25,90 @@ import (
 var embedZip embed.FS
 var onefile bool = false
 var mainPyCode string = `main_pycode`
+
+type PYIContext struct {
+	ApplicationHomeDir string
+}
+
+func forceUnloadBundledDLLs(ctx *PYIContext) int {
+	processHandle := windows.CurrentProcess()
+	var loadedDLLs []windows.Handle
+	sizeNeeded := uint32(0)
+	if err := windows.EnumProcessModules(processHandle, nil, 0, &sizeNeeded); err != nil {
+		return 0
+	}
+
+	numModules := int(sizeNeeded / uint32(unsafe.Sizeof(windows.Handle(0))))
+	loadedDLLs = make([]windows.Handle, numModules)
+	if err := windows.EnumProcessModules(processHandle, &loadedDLLs[0], sizeNeeded, &sizeNeeded); err != nil {
+		return 0
+	}
+
+	applicationHomeDir := syscall.StringToUTF16(ctx.ApplicationHomeDir)
+	applicationHomeDirLen := len(applicationHomeDir)
+	problematicDLLs := make([]windows.Handle, 0)
+
+	for _, dll := range loadedDLLs {
+		dllPath := make([]uint16, windows.MAX_PATH)
+		if err := windows.GetModuleFileNameEx(processHandle, dll, &dllPath[0], uint32(len(dllPath))); err != nil {
+			continue
+		}
+
+		// Compare paths manually
+		match := true
+		for i := 0; i < applicationHomeDirLen && i < len(dllPath); i++ {
+			if applicationHomeDir[i] != dllPath[i] {
+				match = false
+				break
+			}
+		}
+		if match {
+			problematicDLLs = append(problematicDLLs, dll)
+		}
+	}
+
+	unloadedDLLs := 0
+	for _, dll := range problematicDLLs {
+		attempts := 0
+		for attempts < 32 {
+			if err := windows.FreeLibrary(dll); err == nil {
+				unloadedDLLs++
+				break
+			}
+			attempts++
+		}
+	}
+
+	return unloadedDLLs
+}
+
+func mitigateLockedTemporaryDirectory(ctx *PYIContext) int {
+	maxAttempts := 15
+	delay := time.Second
+
+	unloadedDLLs := forceUnloadBundledDLLs(ctx)
+	if unloadedDLLs > 0 {
+		if removeTemporaryDirectory(ctx.ApplicationHomeDir) {
+			return 0
+		}
+	}
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		time.Sleep(delay)
+		if removeTemporaryDirectory(ctx.ApplicationHomeDir) {
+			return 0
+		}
+	}
+
+	return -1
+}
+
+func removeTemporaryDirectory(path string) bool {
+	// Placeholder function for directory removal logic.
+	// Implement your recursive directory removal logic here.
+	fmt.Printf("Attempting to remove directory: %s\n", path)
+	return true
+}
 
 func MessageBox(title, message string) {
 	user32, _ := windows.LoadDLL("user32.dll")
@@ -181,52 +266,64 @@ from io import BytesIO, BufferedReader
 
 
 class ZipMemoryLoader(importlib.abc.MetaPathFinder, importlib.abc.Loader):
-	def __init__(self, zip_data):
-		self.zip_data = zip_data
-		self.zip_file = zipfile.ZipFile(BytesIO(zip_data), 'r')
-		self.zip_file_namelist = self.zip_file.namelist()
-	
-	def find_spec(self, fullname, path, target=None):   
-		parts = fullname.split('.')
-		base_name = parts[0]
-		is_package = False
+    def __init__(self, zip_data):
+        self.zip_data = zip_data
+        self.zip_file = zipfile.ZipFile(BytesIO(zip_data), 'r')
+        self.zip_file_namelist = self.zip_file.namelist()
 
-		# 查找 .pyc 文件或包目录中的 __init__.pyc 文件
-		possible_paths = [
-			f"{base_name}.pyc",
-			f"{base_name}/__init__.pyc"
-		]
+    def find_spec(self, fullname, path, target=None):
+        """
+        查找模块的规格。支持单模块和嵌套包。
+        """
+        parts = fullname.split('.')
+        package_path = '/'.join(parts)
 
-		if len(parts) > 1:
-			# 如果是子模块或子包，构造完整路径
-			package_path = '/'.join(parts)
-			possible_paths.extend([
-				f"{package_path}.pyc",
-				f"{package_path}/__init__.pyc"
-			])
-			is_package = any(p.endswith('/__init__.pyc') for p in possible_paths)
+        # 可能的路径：模块或包的字节码文件
+        possible_paths = [
+            f"{package_path}.pyc",
+            f"{package_path}/__init__.pyc"
+        ]
 
-		for path in possible_paths:
-			if path in self.zip_file_namelist:
-				spec = importlib.util.spec_from_loader(fullname, self, origin=path)
-				# 如果是包，则设置 submodule_search_locations
-				spec.submodule_search_locations = [f"{base_name}/"] if is_package else None
-				return spec
+        # 判断是否为包
+        is_package = any(p.endswith('/__init__.pyc') for p in possible_paths)
 
-		return None
+        # 查找模块的路径是否存在于 ZIP 文件中
+        for path in possible_paths:
+            if path in self.zip_file_namelist:
+                spec = importlib.util.spec_from_loader(fullname, self, origin=path)
+                if is_package:
+                    # 如果是包，设置子模块搜索路径
+                    spec.submodule_search_locations = [package_path + '/']
+                return spec
 
-	def create_module(self, spec):
-		# 使用默认行为创建模块
-		return None  
+        return None
 
-	def exec_module(self, module):
-		spec = module.__spec__
-		origin = spec.origin
-		if origin is not None:
-			with self.zip_file.open(origin) as source_file:            
-				source_file.seek(16)
-				code = marshal.load(BufferedReader(source_file))
-				exec(code, module.__dict__)
+    def create_module(self, spec):
+        """
+        使用默认行为创建模块。
+        """
+        return None  # 返回 None，表示使用默认模块创建逻辑
+
+    def exec_module(self, module):
+        """
+        执行模块代码，将其加载到模块的命名空间中。
+        """
+        spec = module.__spec__
+        origin = spec.origin
+        if origin:
+            with self.zip_file.open(origin) as source_file:
+                # 跳过 pyc 文件头部
+                source_file.seek(16)
+                code = marshal.load(BufferedReader(source_file))
+
+                # 如果是包，设置 __package__ 和 __path__
+                module.__package__ = spec.name if spec.submodule_search_locations else spec.parent
+                if spec.submodule_search_locations:
+                    module.__path__ = spec.submodule_search_locations
+
+                # 执行模块代码
+                exec(code, module.__dict__)
+
 
 shared_mem = shm.SharedMemory(name="MySharedMemory")
 zip_data = shared_mem.buf.tobytes()
@@ -236,8 +333,8 @@ shared_mem.close()
 loader = ZipMemoryLoader(zip_data)
 sys.meta_path.insert(0, loader)
 
-globals_  = {'__file__': 'main', '__name__': '__main__'}
-globals_ = globals().update(globals_ )
+globals_ = {'__file__': 'main', '__name__': '__main__'}
+globals_ = globals().update(globals_)
 # 将十六进制字符串转换回字节序列
 pyc_data = bytes.fromhex("%s")
 compiled_code = marshal.loads(pyc_data[16:])
@@ -278,9 +375,34 @@ exec(compiled_code, globals_)
 	}
 
 	// 确保 Python 环境被正确清理
+	fmt.Println("卸载python解释器")
 	finalize, _ := pythonDll.FindProc("Py_FinalizeEx")
 	finalize.Call()
 
 	os.Chdir(cDir)
+	pythonDll.Release()
+	for i := 0; i < 20; i++ {
+		kernel32 := windows.NewLazySystemDLL("kernel32.dll")
+		procFreeLibrary := kernel32.NewProc("FreeLibrary")
+		procFreeLibrary.Call(uintptr(pythonDll.Handle))
+		time.Sleep(time.Millisecond * 1000)
+	}
+
+	fmt.Println("清除临时目录...")
+	ctx := &PYIContext{
+		ApplicationHomeDir: currentDir,
+	}
+	result := mitigateLockedTemporaryDirectory(ctx)
+	if result == 0 {
+		fmt.Println("临时目录 removed successfully.")
+	} else {
+		fmt.Println("移除临时目录失败")
+	}
+	err = os.RemoveAll(currentDir)
+	if err != nil {
+		fmt.Println("删除文件失败:", err)
+	} else {
+		fmt.Println("成功删除文件")
+	}
 
 }
