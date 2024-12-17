@@ -87,10 +87,10 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
         with ThreadPoolExecutor() as executor:
             futures = []
             for dependency_file in dependency_files:
-                if dependency_file[:len(base_env_dir)].lower() == base_env_dir.lower():
-                    dependency_file_ = rundep_dir + dependency_file[len(base_env_dir):]
-                else:
+                if dependency_file[:len(current_env_dir)].lower() == current_env_dir.lower():
                     dependency_file_ = rundep_dir + dependency_file[len(current_env_dir):]
+                else:
+                    dependency_file_ = rundep_dir + dependency_file[len(base_env_dir):]
 
                 if os.path.exists(dependency_file):
                     to_save_dir = os.path.dirname(dependency_file_)
@@ -147,7 +147,7 @@ def copy_py_env(save_dir, main_run_path=None, fast_mode=False, monitoring_time=1
 
     to_hmac_path = Path.joinpath(Path(save_dir), 'rundep/Lib/hmac.py')
     to_secrets_path = Path.joinpath(Path(save_dir), 'rundep/Lib/secrets.py')
-    multiprocessing_dir = Path.joinpath(Path(base_env_dir), 'rundep/Lib/multiprocessing')
+    multiprocessing_dir = Path.joinpath(Path(save_dir), 'rundep/Lib/multiprocessing')
     os.makedirs(multiprocessing_dir, exist_ok=True)
     to_shared_memory_path = Path.joinpath(multiprocessing_dir, 'shared_memory.py')
 
