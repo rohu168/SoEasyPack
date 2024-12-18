@@ -346,16 +346,24 @@ exec(compiled_code, globals_)
 		// 因无法释放pythonXX.dll,会有残留，所以使用任务计划再次删除临时目录
 		taskName := "DeleteTempDirTask"
 		command := fmt.Sprintf(`cmd /b /c rd /s /q "%s"`, currentDir) // 删除目录的命令
+        //command := fmt.Sprintf(`powershell.exe -WindowStyle Hidden -Command Remove-Item -Recurse -Force "%s"`, currentDir)
 		runTime := time.Now().Add(1 * time.Minute).Format("15:04:05") // 格式为 HH:mm
 
 		// 创建任务
-		exec.Command("schtasks", "/Create",
+		cmd := exec.Command("schtasks", "/Create",
 			"/TN", taskName, // 任务名称
 			"/TR", command, // 执行的命令
 			"/SC", "ONCE", // 一次性任务
 			"/ST", runTime, // 执行时间
+			"/RL", "HIGHEST",
+			"/RU", "SYSTEM",
 			"/F", // 强制覆盖已有任务
-		).Run()
+		)
+		// 设置 SysProcAttr 以隐藏命令行窗口
+		cmd.SysProcAttr = &windows.SysProcAttr{
+			CreationFlags: windows.CREATE_NO_WINDOW,
+		}
+		cmd.Run()
 
 	}
 
