@@ -41,7 +41,7 @@ def copytree_parallel(src, dest, ignore_func=None):
     futures = []
     with ThreadPoolExecutor() as executor:
         for root, dirs, files in os.walk(src):
-            dest_dir = os.path.join(dest, os.path.relpath(root, src))
+            dest_dir = os.path.join(dest, str(os.path.relpath(root, src)))
             if not os.path.exists(dest_dir):
                 os.makedirs(dest_dir)
 
@@ -68,11 +68,12 @@ def copy_py_env(save_dir, main_run_path=None, pack_mode=0, monitoring_time=18, e
     :param pack_mode:
     :param monitoring_time:
     :param except_packages:
+    :param embed_exe:
     :return:
     """
 
-    base_env_dir = str(sys.base_prefix).replace('\\', '/')
-    current_env_dir = str(sys.prefix).replace('\\', '/')
+    base_env_dir = Path(sys.base_prefix).resolve()
+    current_env_dir = Path(sys.prefix).resolve()
     if current_env_dir == base_env_dir:
         is_go = input(f"当前你的环境：非虚拟环境，{current_env_dir}, 可能会打包无用的依赖文件！若继续操作，请输入Y或y：")
         if is_go.lower() != 'y':
@@ -82,15 +83,25 @@ def copy_py_env(save_dir, main_run_path=None, pack_mode=0, monitoring_time=18, e
         logging.info("当前模式：快速模式")
         dependency_files = check_dependency_files(main_run_path, save_dir, pack_mode=pack_mode,
                                                   monitoring_time=monitoring_time, except_packages=except_packages)
-        rundep_dir = str(Path.joinpath(Path(save_dir), 'rundep')).replace('\\', '/')
+        rundep_dir = Path.joinpath(Path(save_dir), 'rundep').resolve()
         logging.info("复制python环境...")
         with ThreadPoolExecutor() as executor:
             futures = []
+            current_env_path = Path(current_env_dir).resolve()
+            base_env_path = base_env_dir.resolve()
             for dependency_file in dependency_files:
-                if dependency_file[:len(current_env_dir)].lower() == current_env_dir.lower():
-                    dependency_file_ = rundep_dir + dependency_file[len(current_env_dir):]
+                # if dependency_file[:current_env_dir_len].lower() == current_env_dir.lower():
+                #     dependency_file_ = rundep_dir + dependency_file[current_env_dir_len:]
+                # else:
+                #     dependency_file_ = rundep_dir + dependency_file[base_env_dir_len:]
+                dep_path = Path(dependency_file).resolve()
+
+                if current_env_path in dep_path.parents:
+                    relative_path = dep_path.relative_to(current_env_path)
+                    dependency_file_ = rundep_dir / relative_path
                 else:
-                    dependency_file_ = rundep_dir + dependency_file[len(base_env_dir):]
+                    relative_path = dep_path.relative_to(base_env_path)
+                    dependency_file_ = rundep_dir / relative_path
 
                 if os.path.exists(dependency_file):
                     to_save_dir = os.path.dirname(dependency_file_)
@@ -119,9 +130,10 @@ def copy_py_env(save_dir, main_run_path=None, pack_mode=0, monitoring_time=18, e
 
         # # 排除复制官方python无用的文件和文件夹
         py_exclusions = ('Scripts', 'Doc', 'LICENSE', 'LICENSE.txt',
-                         'NEWS.txt', 'share', 'Tools', 'include', 'venv',
-                         'site-packages', 'test', '__pycache__'
+                         'NEWS.txt', 'share', 'Tools', 'include', 'venv', 'readme',
+                         'site-packages', 'test', '__pycache__', 'lib2to3', 'unittest', 'turtledemo'
                          )
+
         ignore_func = partial(ignore_files, py_exclusions=py_exclusions)
         copytree_parallel(base_env_dir, dest, ignore_func)
         if pack_mode == 1:
@@ -139,41 +151,39 @@ def copy_py_env(save_dir, main_run_path=None, pack_mode=0, monitoring_time=18, e
             to_sp_path = Path.joinpath(Path(dest), 'Lib/site-packages')
             copytree_parallel(sp_path, to_sp_path, ignore_func)
         else:
-            for py_package in ('pip', 'pkg_resources', 'setuptools', '_distutils_hack'):
-                sp_path = Path.joinpath(Path(base_env_dir), f'Lib/site-packages/{py_package}')
-                to_sp_path = Path.joinpath(Path(save_dir), f'rundep/Lib/site-packages/{py_package}')
-                os.makedirs(to_sp_path, exist_ok=True)
-                shutil.copytree(sp_path, to_sp_path, dirs_exist_ok=True)
+            os.makedirs(Path.joinpath(Path(dest), 'Lib/site-packages'), exist_ok=True)
 
     pyenv_file = Path.joinpath(Path(save_dir), 'rundep/pyvenv.cfg')
     if pyenv_file.exists():
         os.remove(pyenv_file)
     scripts_dir = Path.joinpath(Path(save_dir), 'rundep/Scripts')
     shutil.rmtree(scripts_dir, ignore_errors=True)
-    if embed_exe:
-        # # 复制运行嵌入exe所需依赖项
-        py_files = ('hmac', 'secrets', 'struct', 'base64', 'warnings', 'hashlib', 'random',
-                    'bisect', 'contextlib', 'zipfile', 'posixpath', 'shutil', 'fnmatch', 'threading',
-                    '_weakrefset')
-        for py_file in py_files:
-            to_save_path = Path.joinpath(Path(save_dir), f"rundep/Lib/{py_file}.py")
-            if not os.path.exists(to_save_path):
-                py_file_path = Path.joinpath(Path(base_env_dir), f"Lib/{py_file}.py")
-                shutil.copyfile(py_file_path, to_save_path)
 
-        encodings_cp437_path = Path.joinpath(Path(base_env_dir), 'Lib/encodings/cp437.py')
-        to_cp437_path = Path.joinpath(Path(save_dir), f"rundep/Lib/encodings/cp437.py")
-        shutil.copyfile(encodings_cp437_path, to_cp437_path)
 
-        multiprocessing_dir = Path.joinpath(Path(save_dir), 'rundep/Lib/multiprocessing')
-        os.makedirs(multiprocessing_dir, exist_ok=True)
-        shared_memory_path = Path.joinpath(Path(base_env_dir), 'Lib/multiprocessing/shared_memory.py')
-        to_shared_memory_path = Path.joinpath(multiprocessing_dir, 'shared_memory.py')
-        shutil.copyfile(shared_memory_path, to_shared_memory_path)
+def copy_embed_depend(save_dir, base_env_dir):
+    # # 复制运行嵌入exe所需依赖项
+    py_files = ('hmac', 'secrets', 'struct', 'base64', 'warnings', 'hashlib', 'random',
+                'bisect', 'contextlib', 'zipfile', 'posixpath', 'shutil', 'fnmatch', 'threading',
+                '_weakrefset')
+    for py_file in py_files:
+        to_save_path = Path.joinpath(Path(save_dir), f"rundep/Lib/{py_file}.py")
+        if not os.path.exists(to_save_path):
+            py_file_path = Path.joinpath(Path(base_env_dir), f"Lib/{py_file}.py")
+            shutil.copyfile(py_file_path, to_save_path)
 
-        importlib_dir = Path.joinpath(Path(base_env_dir), 'Lib/importlib')
-        to_importlib_dir = Path.joinpath(Path(save_dir), 'rundep/Lib/importlib')
-        shutil.copytree(importlib_dir, to_importlib_dir, dirs_exist_ok=True)
+    encodings_cp437_path = Path.joinpath(Path(base_env_dir), 'Lib/encodings/cp437.py')
+    to_cp437_path = Path.joinpath(Path(save_dir), f"rundep/Lib/encodings/cp437.py")
+    shutil.copyfile(encodings_cp437_path, to_cp437_path)
+
+    multiprocessing_dir = Path.joinpath(Path(save_dir), 'rundep/Lib/multiprocessing')
+    os.makedirs(multiprocessing_dir, exist_ok=True)
+    shared_memory_path = Path.joinpath(Path(base_env_dir), 'Lib/multiprocessing/shared_memory.py')
+    to_shared_memory_path = Path.joinpath(multiprocessing_dir, 'shared_memory.py')
+    shutil.copyfile(shared_memory_path, to_shared_memory_path)
+
+    importlib_dir = Path.joinpath(Path(base_env_dir), 'Lib/importlib')
+    to_importlib_dir = Path.joinpath(Path(save_dir), 'rundep/Lib/importlib')
+    shutil.copytree(importlib_dir, to_importlib_dir, dirs_exist_ok=True)
 
 
 def copy_py_script(main_py_path, save_dir):
@@ -190,11 +200,15 @@ def copy_py_script(main_py_path, save_dir):
 
 def create_bat(save_dir):
     # 生成bat脚本
-    main_py_relative_path = 'rundep/AppData/main.pyc'
-    py_interpreter = 'rundep/python.exe'
-    bat_file_content = f'''@echo off
-    start /B "" {py_interpreter} {main_py_relative_path}"
-    '''
+    bat_file_content = fr'''
+@echo off
+set "current_dir=%cd%"
+set "rundep_dir=%current_dir%\rundep"
+set "python_path=%rundep_dir%\python.exe"
+
+cd /d "%rundep_dir%\AppData"
+start /B "" %python_path% main.pyc"
+'''
     bat_path = Path.joinpath(Path(save_dir), 'run.bat')
     with open(bat_path, 'w', encoding='utf-8') as bat_file:
         bat_file.write(bat_file_content)
@@ -213,9 +227,11 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
     :param png_path:
     :param embed_exe:
     :param onefile:
+    :param pack_mode:
     :param file_version:
     :param product_name:
     :param company:
+    :param uac:
     :return:
     """
 
@@ -238,6 +254,7 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
         with open(main_py_path, mode='rb') as fp:
             main_py_code = fp.read()
             main_py_code_hex = main_py_code.hex()
+        os.remove(main_py_path)
         letters = string.ascii_letters + string.digits
         sm_name = ''.join([random.choices(letters)[0] for _ in range(8)])
         if onefile:
@@ -343,13 +360,14 @@ def py_to_pyc(dest_dir, optimize):
             ready_remove_dirs.append(root)
             continue
         for file in files:
+            if ('config' in file) or ('WmDefault' in file):
+                # # cv2会读取config.py文件, 跳过tcl的WmDefault(缩进有问题)
+                continue
             if file.endswith('.py'):
                 py_file = os.path.join(root, file)
                 try:
                     py_compile.compile(py_file, cfile=py_file + 'c', quiet=1, optimize=optimize)
-                    if 'config' not in file:
-                        # # cv2会读取config.py文件
-                        ready_remove_files.append(py_file)
+                    ready_remove_files.append(py_file)
                 except Exception as e:
                     logging.error(f"{py_file} 转pyc时发生错误: {e}")
 
@@ -363,9 +381,10 @@ def py_to_pyc(dest_dir, optimize):
 def to_pack(main_py_path: str, save_dir: str = None,
             exe_name: str = 'main', png_path: str = '', hide_cmd: bool = True,
             pack_mode: Literal[0, 1, 2] = 0, force_copy_env: bool = False,
-            auto_py_pyc: bool = True, pyc_optimize: int = 1,
+            auto_py_pyc: bool = True, pyc_optimize: Literal[-1, 0, 1, 2] = 1,
             auto_py_pyd: bool = False, embed_exe: bool = False, onefile: bool = False,
-            monitoring_time: int = 18, uac: bool = False, requirements_path: str = '', except_packages: [str] = None,
+            monitoring_time: int = 18, uac: bool = False, requirements_path: str = None,
+            except_packages: [str] = None,
             **kwargs):
     """
     :param main_py_path:主入口py文件路径
@@ -389,7 +408,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
     :param onefile: 是否生成只有一个exe
     :param monitoring_time: 监控工具运行时长（秒）
     :param uac: 以管理员身份运行
-    :param requirements_path: 轻量模式的依赖清单表路径
+    :param requirements_path: 轻量模式的依赖清单文件路径
     :param except_packages: 排除的第三方包名称
     :param kwargs:
     :return:
@@ -398,6 +417,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
     if pack_mode not in (0, 1, 2):
         logging.error('pack_mode参数值只限于0, 1, 2')
         return
+
     if not os.path.exists(main_py_path):
         logging.error(f'未找到{main_py_path}，请检查路径')
         return
@@ -414,7 +434,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
         onefile = False
         if (not requirements_path) or (not os.path.exists(requirements_path)):
             logging.error(f'未找到依赖包文件：{requirements_path}')
-            sys.exit()
+            return
 
     rundep_dir = str(save_dir) + '/rundep'
     if force_copy_env:
@@ -429,8 +449,10 @@ def to_pack(main_py_path: str, save_dir: str = None,
             copy_py_env(save_dir, main_py_path, pack_mode, monitoring_time, except_packages, embed_exe)
 
     new_main_py_path = copy_py_script(main_py_path, save_dir)
+
     if pack_mode == 1:
-        to_slim_file(new_main_py_path, check_dir=rundep_dir, project_dir=save_dir, monitoring_time=monitoring_time)
+        to_slim_file(new_main_py_path, check_dir=rundep_dir, project_dir=save_dir, monitoring_time=monitoring_time,
+                     pack_mode=pack_mode)
     elif pack_mode == 2:
         logging.info("复制requirements.txt")
         if requirements_path:
@@ -441,6 +463,9 @@ def to_pack(main_py_path: str, save_dir: str = None,
         else:
             logging.error(f'未找到依赖包文件：{requirements_path}')
             sys.exit()
+
+    if embed_exe:
+        copy_embed_depend(save_dir, sys.base_prefix)
 
     # # 把用户主程序重命名为mian.py
     script_dir = save_dir + '/rundep/AppData'
@@ -454,7 +479,9 @@ def to_pack(main_py_path: str, save_dir: str = None,
             logging.error(f"转pyd出错：{e}")
     if auto_py_pyc or embed_exe or onefile:
         py_to_pyc(rundep_dir, pyc_optimize)
-    create_bat(save_dir)
-    build_exe(save_dir, hide_cmd, exe_name, png_path, embed_exe=embed_exe, onefile=onefile, uac=uac, pack_mode=pack_mode, **kwargs)
+    if not (embed_exe or onefile):
+        create_bat(save_dir)
+    build_exe(save_dir, hide_cmd, exe_name, png_path, embed_exe=embed_exe, onefile=onefile,
+              uac=uac, pack_mode=pack_mode, **kwargs)
 
     logging.info('结束')

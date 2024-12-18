@@ -34,8 +34,7 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
         dependency_file_csv = Path(project_dir).joinpath("dependency_fast.csv")
     if dependency_file_csv.exists():
         logging.info('已存在依赖文件清单表，跳过依赖文件检查')
-        dependency_files = get_dependency_list(dependency_file_csv)
-        dependency_files.add(str(dependency_file_csv))
+        dependency_files = get_dependency_list(dependency_file_csv, pack_mode=pack_mode)
         return dependency_files
 
     logging.info('当你的项目稍后自动运行后，请进行一些必要的功能操作：如点击运行按钮等,否则可能会造成依赖缺失')
@@ -52,9 +51,9 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
         "/Backingfile", procmon_log_path,
         # "/LoadConfig", pmc_base_path,
     ]
-    logging.info("开始启动监控工具,3秒后自动启动你的程序")
+    logging.info("开始启动监控工具,4秒后自动启动你的程序")
     procmon_process = subprocess.Popen(cmd)
-    time.sleep(3)
+    time.sleep(4)
     current_env_py = sys.executable.replace('\\', '/')
     image_path = str(sys.base_prefix).replace('\\', '/') + '/python.exe'
 
@@ -119,10 +118,11 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
         for i in ready_remove_list:
             dependency_files.remove(i)
 
-    with open(dependency_file_csv, mode='w', newline='', encoding='utf-8') as fp:
-        csv_writer = csv.writer(fp)
-        for i in dependency_files:
-            csv_writer.writerow([i])
+    if dependency_files:
+        with open(dependency_file_csv, mode='w', newline='', encoding='utf-8') as fp:
+            csv_writer = csv.writer(fp)
+            for i in dependency_files:
+                csv_writer.writerow([i])
     try:
         os.remove(procmon_log_path)
         os.remove(csv_log_path)
@@ -146,7 +146,7 @@ def get_dependency_list(csv_log_path, image_path=None, check_dir=None, pack_mode
     with open(csv_log_path, encoding='utf-8') as fp:
         csvreader = csv.reader(fp)
         if check_dir:
-            image_path = image_path.lower()
+            image_path = image_path.lower().replace('\\', '/')
             if isinstance(check_dir, list):
                 for row in csvreader:
                     cell_value = row[0].replace('\\', '/')
@@ -156,6 +156,7 @@ def get_dependency_list(csv_log_path, image_path=None, check_dir=None, pack_mode
                         if (check_dir[0] in cell_value_) or (check_dir[1] in cell_value_):
                             dependency_files.add(cell_value)
             else:
+                check_dir = check_dir.lower().replace('\\', '/')
                 for row in csvreader:
                     cell_value = row[0].replace('\\', '/')
                     cell_value_ = cell_value.lower()
@@ -178,8 +179,10 @@ def move_files(check_dir, project_dir, dependency_files):
     removed_size = 0
 
     for root, dirs, files in os.walk(check_dir):
+        if "rundep/AppData" in root:
+            continue
         for filename in files:
-            src_file = str(os.path.join(root, filename))
+            src_file = str(os.path.join(root, filename)).replace('\\', '/')
             if src_file in dependency_files:
                 continue
             else:
@@ -199,8 +202,11 @@ def move_files(check_dir, project_dir, dependency_files):
     for root, dirs, files in os.walk(project_dir, topdown=False):
         for name in dirs:
             full_path = os.path.join(root, name)
-            if not os.listdir(full_path):
-                os.rmdir(full_path)
+            if not os.listdir(str(full_path)):
+                try:
+                    os.rmdir(full_path)
+                except Exception:
+                    pass
 
     removed_size = f"{removed_size / (1024 * 1024):.2f}"
     logging.info(f"瘦身完成，移除了{moved_file_num}个文件, 减小了{removed_size}M")
@@ -208,7 +214,7 @@ def move_files(check_dir, project_dir, dependency_files):
         logging.info(f"移除的文件保存到了:{removed_file_dir}")
 
 
-def to_slim_file(main_run_path: str, check_dir: str, project_dir: str = None, monitoring_time: int = 18):
+def to_slim_file(main_run_path: str, check_dir: str, project_dir: str = None, monitoring_time: int = 18, pack_mode=0):
     """
     项目瘦身
     :param main_run_path: 项目主运行文件路径,py或其它
@@ -223,7 +229,8 @@ def to_slim_file(main_run_path: str, check_dir: str, project_dir: str = None, mo
     main_run_path = main_run_path.replace("\\", "/")
     check_dir = check_dir.replace("\\", "/")
     project_dir = project_dir.replace("\\", "/")
-    dependency_files = check_dependency_files(main_run_path, project_dir, check_dir, monitoring_time=monitoring_time)
+    dependency_files = check_dependency_files(main_run_path, project_dir, check_dir, monitoring_time=monitoring_time,
+                                              pack_mode=pack_mode)
     move_files(check_dir, project_dir, dependency_files)
 
 

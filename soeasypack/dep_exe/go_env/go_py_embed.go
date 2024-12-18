@@ -132,31 +132,17 @@ func extractZip(zipReader io.ReaderAt, size int64, dest string) error {
 	}
 	return nil
 }
+
+type stderrCapturer struct {
+	buf *bytes.Buffer
+}
+
+// 实现 io.Writer 的 Write 方法
+func (c *stderrCapturer) Write(p []byte) (n int, err error) {
+	return c.buf.Write(p)
+}
 func main() {
 	cDir, _ := os.Getwd()
-	if packmode == 2 {
-		isExist := fileExists(cDir + "\\rundep\\compiled_pip.txt")
-		if !isExist {
-			MessageBox("提示", "依赖包不全，将准备自动下载依赖包")
-			os.Chdir(cDir + "\\rundep")
-			cmd := exec.Command("cmd", "/c", "python.exe -m pip install -r AppData\\requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple")
-			// 捕获标准输出和标准错误
-			var stdout, stderr bytes.Buffer
-			cmd.Stdout = &stdout
-			cmd.Stderr = &stderr
-
-			err := cmd.Run()
-
-			if err != nil {
-				MessageBox("提示", "安装依赖包失败:"+err.Error()+"\n"+stderr.String())
-				os.Exit(0)
-			} else {
-				f, _ := os.Create(cDir + "\\rundep\\compiled_pip.txt")
-				f.Close()
-			}
-		}
-
-	}
 
 	var currentDir string
 	if onefile {
@@ -188,13 +174,43 @@ func main() {
 		currentDir = currentDir + "\\rundep"
 	}
 
+	os.Chdir(currentDir)
+	if packmode == 2 {
+		isExist := fileExists(currentDir + "\\compiled_pip.txt")
+		if !isExist {
+			MessageBox("提示", "依赖包不全，将准备自动下载依赖包")
+			cmd := exec.Command("cmd", "/c", "python.exe -m ensurepip --upgrade")
+
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			err := cmd.Run()
+			if err != nil {
+				MessageBox("提示", "自动下载依赖包失败:"+err.Error())
+				os.Exit(0)
+			} else {
+				cmd := exec.Command("cmd", "/c", "python.exe -m pip install -r AppData\\requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple")
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+
+				err := cmd.Run()
+				if err != nil {
+					MessageBox("提示", "安装依赖包失败:"+err.Error())
+					os.Exit(0)
+				} else {
+					f, _ := os.Create(currentDir + "\\compiled_pip.txt")
+					f.Close()
+				}
+			}
+
+		}
+
+	}
+
 	handle, addr := createSharedMemory()
 	defer windows.CloseHandle(handle)
 	defer windows.UnmapViewOfFile(addr)
 
 	os.Setenv("PYTHONHOME", currentDir)
-	// 切换当前工作目录
-	os.Chdir(currentDir)
 
 	pyCode := fmt.Sprintf(`
 import sys
@@ -269,7 +285,6 @@ class ZipMemoryLoader(importlib.abc.MetaPathFinder, importlib.abc.Loader):
 shared_mem = shm.SharedMemory(name="MySharedMemory")
 zip_data = shared_mem.buf.tobytes()
 
-# 关闭共享内存
 shared_mem.close()
 loader = ZipMemoryLoader(zip_data)
 sys.meta_path.insert(0, loader)
@@ -282,7 +297,7 @@ compiled_code = marshal.loads(pyc_data[16:])
 exec(compiled_code, globals_)
 `, mainPyCode)
 
-	// 加载 python3.dll
+	// 加载 pythonxx.dll
 	pythonDll, err := windows.LoadDLL(currentDir + "\\python3.dll")
 	if err != nil {
 		MessageBox("错误", "无法加载 python3.dll: "+err.Error())
@@ -307,16 +322,16 @@ exec(compiled_code, globals_)
 		cArgs = append(cArgs, uintptr(unsafe.Pointer(arg_)))
 	}
 
+	os.Chdir(currentDir + "\\AppData")
 	// 调用 Py_Main 函数执行 Python 脚本
 	argc := len(args)
 	argv := uintptr(unsafe.Pointer(&cArgs[0]))
 	ret, _, _ := pyMainProc.Call(uintptr(argc), argv)
 	if ret != 0 {
-		MessageBox("错误", "执行失败, cmd 运行 run.bat 查看报错信息")
+		MessageBox("错误", "执行失败, cmd 运行 run.bat 查看报错信息,\n或设置hide_cmd为False重新编译然后控制台运行")
 	}
 
 	// 确保 Python 环境被正确清理
-	fmt.Println("卸载python解释器")
 	finalize, _ := pythonDll.FindProc("Py_FinalizeEx")
 	finalize.Call()
 
