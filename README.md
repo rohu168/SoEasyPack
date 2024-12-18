@@ -76,24 +76,24 @@ soeasypack is available on PyPI. You can install it through pip::
 
 - **4**: 函数介绍
     - 1.打包项目
-      ```python
+    ```python
     from soeasypack import to_pack
     
     save_dir = r'C:\save_dir'
     main_py_path = r'C:\my_project\main.py' 
     exe_name = '大都督'
     to_pack(main_py_path, save_dir, pack_mode=0, embed_exe=False,exe_name=exe_name, pyc_optimize=1) 
-      ```
+    ```
     - 2.项目瘦身
-      ```python
+    ```python
     from soeasypack import to_slim_file
     to_slim_file(main_run_path: str, check_dir: str, project_dir: str = None, monitoring_time=20)
-      ```
+    ```
     - 3.生成pyd
-      ```python
+    ```python
     from soeasypack import to_pyd
     to_pyd(script_dir: str, script_dir_main_py: str, is_del_py: bool = False)
-      ```
+    ```
 - 如果你觉得对你有帮助的话，可以打赏1元让作者买个馍呀
 ![](https://github.com/XMQSVIP/MyImage/blob/main/zhi_wei.png?raw=true)
 
