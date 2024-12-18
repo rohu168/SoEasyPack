@@ -3,7 +3,7 @@
 - 此项目受[PyStand](https://github.com/skywind3000/PyStand "PyStand")和[PythonSizeCruncher](https://github.com/mengdeer589/PythonSizeCruncher "PythonSizeCruncher")启发。
 - 不需要复制嵌入式包，也不必再二次瘦身,一次打包理论上就是最小依赖
 - 用简易的方式复制你的python项目并自动精准匹配环境依赖，几乎没有什么多余文件，
-并且可以生成一个exe外壳（用go语言编译,已内置简化过的go环境）作为程序入口启动项目。
+  并且可以生成一个exe启动器启动项目。（用go语言编译,已内置简化过的go环境）
 - 原理：使用微软[procmon](https://learn.microsoft.com/en-us/sysinternals/downloads/procmon "procmon")进程监控工具（已内置），监控项目运行时访问的文件记录
 - 仅支持windows，且仅在windows10和11上测试过
 ## 虚拟环境打包大小对比
@@ -45,43 +45,52 @@ soeasypack is available on PyPI. You can install it through pip::
   所以没有虚拟环境的话，建议使用快速打包模式，它不会复制整个site-packages文件夹
 
 - 伪轻量打包是复制当前python主环境除了site-packages文件夹之外的必要官方文件，然后复制用户脚本目录，复制requirements.txt,
-  用户启动程序后检查依赖是否缺失，缺失自动pip下载,下载完成后rundep目录生成compiled_pip.txt，用以下次启动判断是否需要下载依赖项
+  用户启动程序后检查依赖是否缺失，缺失自动pip下载,下载完成后rundep目录生成compiled_pip.txt，用以下次启动判断是否需要下载依赖项，
 
-- **2**: 注意事项
-- 支持用户脚本嵌入exe，或打包单文件exe,单文件exe运行结束后因不能完全释放dll，所以结束时会自动创建任务计划程序1分钟后清理创建的临时目录
-- 默认会将全部.py文件转为.pyc.不保留原.py文件，优化级别默认使用为1。
-- 会自动将主py文件重命名为main,exe启动程序会依次寻找mian.pyc,.py,.pyd文件
+- **2**: 嵌入exe介绍
+- 普通嵌入exe：设置embed_exe=True,会把rundep/AppData文件夹下用户的所有.py文件转换为.pyc，然后嵌入exe中，其它类型和其它文件夹不会嵌入。
+- 单文件exe：设置onefile=True,会把rundep/AppData文件夹下用户的所有.py文件转换为.pyc，然后嵌入exe中，
+  然后把rundep文件下所有文件压缩成一个zip压缩包嵌入exe中，exe运行时会解压缩到临时目录，退出程序则删除临时目录.
+  其它制作单exe文件方法：使用[Enigma Virtual Box](https://www.enigmaprotector.com/cn/downloads.html)工具打包成只有一个exe  
+
+- **3**: 注意事项
 - 因360安全卫士会拦截procmon相关工具, 所以，打包前请先关闭360安全卫士。
+  procmon启动时会弹出用户账户控制确认窗口，请立即点击确定，若4秒内没有点击确定，则用户程序已启动，导致监控程序不能完整记录依赖文件
+- 单文件exe运行结束后因不能释放所有dll（原因不明），导致不能完全删除临时目录所有文件，会有几兆残留，
+  所以程序结束时会自动创建任务计划程序1分钟后清理创建的临时目录，若一分钟内多次启动多次结束，因任务计划程序被覆盖，
+  则不会删除前几次创建的临时目录残留，
+- 默认会将大全部.py文件转为.pyc.不保留原.py文件，优化级别默认使用为1。
+- 会自动将主py文件重命名为main, exe启动时会将工作目录切换至rundep/Appdata,会依次寻找文件夹下mian.pyc,.py,.pyd启动文件
 - 建议在虚拟环境中使用，非虚拟环境可能会打包无用的依赖(非虚拟环境测试项目：未使用numpy,但项目运行时不知为何访问了numpy,导致复制了这个无用的包)
 - 为了能完整记录依赖文件，监控工具启动后，会自动运行你的脚本，请对你的项目进行必要的操作：如点击运行按钮等，
   如：我使用openpyxl往表格中插入图片，项目自动启动后，我要让脚本执行这一操作，
   这样，监控工具才能监控到依赖文件，否则最后虽然能启动项目但是插入图片时会报错，
   所以，请一定要注意，你的项目启动后，一定要默认监控时间18秒内执行必要的操作。
   18秒大概会产生几百兆的日志，所以，监控时间可以根据实际情况调整。
-- 如果想制作单执行文件，推荐使用[Enigma Virtual Box](https://www.enigmaprotector.com/cn/downloads.html)工具打包成只有一个exe,  
 - 因.pyc可能会被反编译，建议使用soeasypack的py文件转pyd函数（好像需要先安装Visual Studio, 我自己之前安装的有，其它情况也没试）或使用嵌入exe功能
-- **3**: 函数介绍
+- 伪轻量打包会自动将AppData文件夹下全部.py文件转为.pyc，然后嵌入exe
+- 程序图标需要使用png格式
 
+- **4**: 函数介绍
     - 1.打包项目
       ```python
-      from soeasypack import to_pack
-    
-      def test():
-          save_dir = r'C:\save_dir'
-          main_py_path = r'C:\my_project\main.py'
-          exe_name = '大都督'
-          to_pack(main_py_path, save_dir, exe_name=exe_name,  pyc_optimize=1) 
+    from soeasypack import to_pack
+    # # pack_mode：0/快速打包模式 ，1/普通打包模式， 2/伪轻量打包模式
+    save_dir = r'C:\save_dir'
+    main_py_path = r'C:\my_project\main.py' 
+    exe_name = '大都督'
+    to_pack(main_py_path, save_dir, pack_mode=0, embed_exe=False,exe_name=exe_name, pyc_optimize=1) 
       ```
     - 2.项目瘦身
       ```python
-      from soeasypack import to_slim_file
-      to_slim_file(main_run_path: str, check_dir: str, project_dir: str = None, monitoring_time=20)
+    from soeasypack import to_slim_file
+    to_slim_file(main_run_path: str, check_dir: str, project_dir: str = None, monitoring_time=20)
       ```
     - 3.生成pyd
       ```python
-      from soeasypack import to_pyd
-      to_pyd(script_dir: str, script_dir_main_py: str, is_del_py: bool = False)
+    from soeasypack import to_pyd
+    to_pyd(script_dir: str, script_dir_main_py: str, is_del_py: bool = False)
       ```
-- 如果你觉得对你有帮助的话，可以打赏1元让作者买个馍哦
+- 如果你觉得对你有帮助的话，可以打赏1元让作者买个馍呀
 ![](https://github.com/XMQSVIP/MyImage/blob/main/zhi_wei.png?raw=true)
 
