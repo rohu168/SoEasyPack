@@ -90,12 +90,7 @@ def copy_py_env(save_dir, main_run_path=None, pack_mode=0, monitoring_time=18, e
             current_env_path = Path(current_env_dir).resolve()
             base_env_path = base_env_dir.resolve()
             for dependency_file in dependency_files:
-                # if dependency_file[:current_env_dir_len].lower() == current_env_dir.lower():
-                #     dependency_file_ = rundep_dir + dependency_file[current_env_dir_len:]
-                # else:
-                #     dependency_file_ = rundep_dir + dependency_file[base_env_dir_len:]
                 dep_path = Path(dependency_file).resolve()
-
                 if current_env_path in dep_path.parents:
                     relative_path = dep_path.relative_to(current_env_path)
                     dependency_file_ = rundep_dir / relative_path

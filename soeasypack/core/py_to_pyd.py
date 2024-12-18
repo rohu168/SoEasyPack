@@ -40,15 +40,18 @@ def to_pyd(script_dir: str, script_dir_main_py: str, is_del_py: bool = False):
         original_py_name = os.path.basename(py_file).replace('.py', '')
 
         for pyd_file in pyd_files:
-            if original_py_name == os.path.basename(pyd_file).split('.', 1)[0]:
+            pyd_base_name = os.path.basename(pyd_file).split('.', 1)[0]
+            if original_py_name == pyd_base_name:
                 pyd_save_path = temp_build_dir + '\\' + os.path.basename(pyd_file)
                 if pyd_save_path:
                     old_pyd_save_path = original_py_dir + '\\' + os.path.basename(pyd_file)
                     if os.path.exists(old_pyd_save_path):
                         # 删除旧的pyd
                         os.remove(old_pyd_save_path)
+                    pyd_file_dir = os.path.dirname(pyd_file)
+                    os.rename(pyd_file, f"{pyd_file_dir}/{pyd_base_name}.pyd")
+                    shutil.move(f"{pyd_file_dir}/{pyd_base_name}.pyd", original_py_dir)
 
-                    shutil.move(pyd_file, original_py_dir)
                     if is_del_py:
                         os.remove(py_file)
                     break

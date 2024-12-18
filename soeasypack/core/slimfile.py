@@ -145,7 +145,7 @@ def get_dependency_list(csv_log_path, image_path=None, check_dir=None, pack_mode
     dependency_files = set()
     with open(csv_log_path, encoding='utf-8') as fp:
         csvreader = csv.reader(fp)
-        if check_dir:
+        if check_dir and image_path:
             image_path = image_path.lower().replace('\\', '/')
             if isinstance(check_dir, list):
                 for row in csvreader:
