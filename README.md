@@ -70,6 +70,7 @@ soeasypack is available on PyPI. You can install it through pip::
 - 因.pyc可能会被反编译，建议使用soeasypack的py文件转pyd函数（好像需要先安装Visual Studio, 我自己之前安装的有，其它情况也没试）或使用嵌入exe功能
 - 伪轻量打包会自动将AppData文件夹下全部.py文件转为.pyc，然后嵌入exe
 - 程序图标需要使用png格式
+- 若启动出错无法查看报错信息可设置hide_cmd=False,编译成带控制台的exe，然后在cmd中去启动程序查看报错信息
 
 - **4**: 函数介绍
     - 1.打包项目
