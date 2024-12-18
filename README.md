@@ -34,8 +34,9 @@ soeasypack is available on PyPI. You can install it through pip::
 ## 介绍
 
 - **1**: 模式介绍
-- 项目有三种打包模式：【普通打包】和【快速打包】以及【伪轻量打包】（默认使用快速打包）
-  
+- 项目有三种打包模式：【普通打包】和【快速打包】以及【伪轻量打包】（默认使用快速打包）.
+  pack_mode：0/快速打包模式 ，1/普通打包模式， 2/伪轻量打包模式
+
 - 普通打包会先复制当前python主环境的必要官方文件，然后复制当前py环境的整个site-packages
   文件夹到你指定的保存目录，然后启动分析工具分析依赖文件，然后根据依赖文件去删除site-packages
   中无用的文件，会保留被删除的文件到removed_file中，然后自动生成exe, 还可选将你的脚本文件转为pyd,
@@ -76,7 +77,7 @@ soeasypack is available on PyPI. You can install it through pip::
     - 1.打包项目
       ```python
     from soeasypack import to_pack
-    # # pack_mode：0/快速打包模式 ，1/普通打包模式， 2/伪轻量打包模式
+    
     save_dir = r'C:\save_dir'
     main_py_path = r'C:\my_project\main.py' 
     exe_name = '大都督'
