@@ -415,6 +415,10 @@ def to_pack(main_py_path: str, save_dir: str = None,
     :return:
     """
 
+    if os.path.dirname(main_py_path) == save_dir:
+        my_logger.error('save_dir不能是main_py_path所在目录')
+        return
+
     if pack_mode not in (0, 1, 2):
         my_logger.error('pack_mode参数值只限于0, 1, 2')
         return
