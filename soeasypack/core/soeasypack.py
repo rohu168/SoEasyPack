@@ -12,7 +12,6 @@ import string
 import subprocess
 import sys
 import shutil
-import logging
 import fnmatch
 import zipfile
 from functools import partial
@@ -20,12 +19,11 @@ from pathlib import Path
 from typing import Literal
 from concurrent.futures import as_completed, ThreadPoolExecutor
 
+from .my_logger import my_logger
 from .py_to_pyd import to_pyd
 from .slimfile import to_slim_file, check_dependency_files
 
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S')
+
 
 
 def copy_file(src, dest):
@@ -57,7 +55,7 @@ def copytree_parallel(src, dest, ignore_func=None):
         try:
             future.result()
         except Exception as e:
-            logging.error(f"复制线程出错: {e}")
+            my_logger.error(f"复制线程出错: {e}")
 
 
 def copy_py_env(save_dir, main_run_path=None, pack_mode=0, monitoring_time=18, except_packages=None, embed_exe=False):
@@ -80,11 +78,11 @@ def copy_py_env(save_dir, main_run_path=None, pack_mode=0, monitoring_time=18, e
             sys.exit()
 
     if pack_mode == 0:
-        logging.info("当前模式：快速模式")
+        my_logger.info("当前模式：快速模式")
         dependency_files = check_dependency_files(main_run_path, save_dir, pack_mode=pack_mode,
                                                   monitoring_time=monitoring_time, except_packages=except_packages)
         rundep_dir = Path.joinpath(Path(save_dir), 'rundep').resolve()
-        logging.info("复制python环境...")
+        my_logger.info("复制python环境...")
         with ThreadPoolExecutor() as executor:
             futures = []
             current_env_path = Path(current_env_dir).resolve()
@@ -107,13 +105,13 @@ def copy_py_env(save_dir, main_run_path=None, pack_mode=0, monitoring_time=18, e
                 try:
                     future.result()  # 获取结果，捕获任务中的异常
                 except Exception as e:
-                    logging.error(f"复制线程出错: {e}")
+                    my_logger.error(f"复制线程出错: {e}")
     else:
         if pack_mode == 1:
-            logging.info("当前模式：普通模式")
+            my_logger.info("当前模式：普通模式")
         else:
-            logging.info("当前模式：轻量模式")
-        logging.info("复制python环境...")
+            my_logger.info("当前模式：轻量模式")
+        my_logger.info("复制python环境...")
         dest = Path.joinpath(Path(save_dir), 'rundep')
 
         def ignore_files(src, names, py_exclusions):
@@ -182,14 +180,21 @@ def copy_embed_depend(save_dir, base_env_dir):
 
 
 def copy_py_script(main_py_path, save_dir):
-    """
-    复制用户脚本
-    """
-    logging.info('复制你的脚本目录...')
-    script_dir = os.path.dirname(main_py_path)
-    save_dir = Path.joinpath(Path(save_dir), 'rundep/AppData')
-    shutil.copytree(script_dir, save_dir, dirs_exist_ok=True)
-    new_main_py_path = os.path.join(save_dir, os.path.basename(main_py_path))
+    my_logger.info('复制你的脚本目录...')
+
+    main_py_dir = os.path.dirname(main_py_path)
+    relpath_name = os.path.dirname(os.path.relpath(save_dir, main_py_dir))
+    appdata_dir = Path.joinpath(Path(save_dir), 'rundep/AppData')
+
+    def ignore_save_dir(src, names):
+        ignore_names = ['.git', '.svn', '.idea', '__pycache__', 'venv']
+        if src == main_py_dir and relpath_name in names:
+            ignore_names.append(relpath_name)
+        return ignore_names
+
+    shutil.copytree(main_py_dir, appdata_dir, dirs_exist_ok=True, ignore=ignore_save_dir)
+
+    new_main_py_path = os.path.join(appdata_dir, os.path.basename(main_py_path))
     return new_main_py_path
 
 
@@ -230,7 +235,7 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
     :return:
     """
 
-    logging.info('生成exe...')
+    my_logger.info('生成exe...')
     current_dir = Path(__file__).parent.parent
     go_exe_path = Path.joinpath(current_dir, 'dep_exe/go_env/bin/go.exe')
     winres_path = Path.joinpath(current_dir, 'dep_exe/go_env/go-winres.exe')
@@ -306,7 +311,7 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
         shutil.copyfile(png_path, copy_icon_path)
         icon_name = os.path.basename(png_path)
     else:
-        logging.warning("未找到图标文件，将使用默认图标")
+        my_logger.warning("未找到图标文件，将使用默认图标")
         icon_name = ''
 
     if not os.path.exists(save_winres_json):
@@ -346,7 +351,7 @@ go 1.23
 
 
 def py_to_pyc(dest_dir, optimize):
-    logging.info(f'开始将py文件转成pyc文件, pyc优化级别:{optimize}')
+    my_logger.info(f'开始将py文件转成pyc文件, pyc优化级别:{optimize}')
     ready_remove_dirs = []
     ready_remove_files = []
 
@@ -364,7 +369,7 @@ def py_to_pyc(dest_dir, optimize):
                     py_compile.compile(py_file, cfile=py_file + 'c', quiet=1, optimize=optimize)
                     ready_remove_files.append(py_file)
                 except Exception as e:
-                    logging.error(f"{py_file} 转pyc时发生错误: {e}")
+                    my_logger.error(f"{py_file} 转pyc时发生错误: {e}")
 
     # 删除成功编译的py文件和__pycache__目录
     for root in ready_remove_dirs:
@@ -374,13 +379,13 @@ def py_to_pyc(dest_dir, optimize):
 
 
 def to_pack(main_py_path: str, save_dir: str = None,
-            exe_name: str = 'main', png_path: str = '', hide_cmd: bool = True,
+            exe_name: str = 'main', png_path: str = None, hide_cmd: bool = True,
             pack_mode: Literal[0, 1, 2] = 0, force_copy_env: bool = False,
             auto_py_pyc: bool = True, pyc_optimize: Literal[-1, 0, 1, 2] = 1,
             auto_py_pyd: bool = False, embed_exe: bool = False, onefile: bool = False,
             monitoring_time: int = 18, uac: bool = False, requirements_path: str = None,
             except_packages: [str] = None,
-            **kwargs):
+            **kwargs) -> None:
     """
     :param main_py_path:主入口py文件路径
     :param save_dir:打包保存目录(默认为桌面目录)
@@ -410,11 +415,11 @@ def to_pack(main_py_path: str, save_dir: str = None,
     """
 
     if pack_mode not in (0, 1, 2):
-        logging.error('pack_mode参数值只限于0, 1, 2')
+        my_logger.error('pack_mode参数值只限于0, 1, 2')
         return
 
     if not os.path.exists(main_py_path):
-        logging.error(f'未找到{main_py_path}，请检查路径')
+        my_logger.error(f'未找到{main_py_path}，请检查路径')
         return
 
     if not save_dir:
@@ -428,18 +433,18 @@ def to_pack(main_py_path: str, save_dir: str = None,
         embed_exe = True
         onefile = False
         if (not requirements_path) or (not os.path.exists(requirements_path)):
-            logging.error(f'未找到依赖包文件：{requirements_path}')
+            my_logger.error(f'未找到依赖包文件：{requirements_path}')
             return
 
     rundep_dir = str(save_dir) + '/rundep'
     if force_copy_env:
-        logging.info('强制复制环境')
+        my_logger.info('强制复制环境')
         if os.path.exists(rundep_dir):
             shutil.rmtree(rundep_dir)
         copy_py_env(save_dir, main_py_path, pack_mode, monitoring_time, except_packages, embed_exe)
     else:
         if os.path.exists(rundep_dir):
-            logging.info('rundep文件夹已存在，跳过环境复制')
+            my_logger.info('rundep文件夹已存在，跳过环境复制')
         else:
             copy_py_env(save_dir, main_py_path, pack_mode, monitoring_time, except_packages, embed_exe)
 
@@ -449,14 +454,14 @@ def to_pack(main_py_path: str, save_dir: str = None,
         to_slim_file(new_main_py_path, check_dir=rundep_dir, project_dir=save_dir, monitoring_time=monitoring_time,
                      pack_mode=pack_mode)
     elif pack_mode == 2:
-        logging.info("复制requirements.txt")
+        my_logger.info("复制requirements.txt")
         if requirements_path:
             save_requirements_path = Path.joinpath(Path(save_dir), 'rundep/AppData/requirements.txt')
             if save_requirements_path.exists():
                 os.remove(save_requirements_path)
             shutil.copyfile(requirements_path, save_requirements_path)
         else:
-            logging.error(f'未找到依赖包文件：{requirements_path}')
+            my_logger.error(f'未找到依赖包文件：{requirements_path}')
             sys.exit()
 
     if embed_exe:
@@ -471,7 +476,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
         try:
             to_pyd(script_dir, script_dir_main_py=script_dir_main_py, is_del_py=True)
         except Exception as e:
-            logging.error(f"转pyd出错：{e}")
+            my_logger.error(f"转pyd出错：{e}")
     if auto_py_pyc or embed_exe or onefile:
         py_to_pyc(rundep_dir, pyc_optimize)
     if not (embed_exe or onefile):
@@ -479,4 +484,4 @@ def to_pack(main_py_path: str, save_dir: str = None,
     build_exe(save_dir, hide_cmd, exe_name, png_path, embed_exe=embed_exe, onefile=onefile,
               uac=uac, pack_mode=pack_mode, **kwargs)
 
-    logging.info('结束')
+    my_logger.info('结束')

@@ -9,13 +9,10 @@ import csv
 import sys
 import time
 import shutil
-import logging
 import subprocess
 from pathlib import Path
 
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S')
+from .my_logger import my_logger
 
 
 def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode=0,
@@ -33,15 +30,15 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
     if pack_mode == 0:
         dependency_file_csv = Path(project_dir).joinpath("dependency_fast.csv")
     if dependency_file_csv.exists():
-        logging.info('已存在依赖文件清单表，跳过依赖文件检查')
+        my_logger.info('已存在依赖文件清单表，跳过依赖文件检查')
         dependency_files = get_dependency_list(dependency_file_csv, pack_mode=pack_mode)
         return dependency_files
 
-    logging.info('当你的项目稍后自动运行后，请进行一些必要的功能操作：如点击运行按钮等,否则可能会造成依赖缺失')
+    my_logger.info('当你的项目稍后自动运行后，请进行一些必要的功能操作：如点击运行按钮等,否则可能会造成依赖缺失')
     time.sleep(5)
     if os.path.exists(procmon_log_path):
         os.remove(procmon_log_path)
-    logging.info(f'准备监控依赖文件，{monitoring_time}秒后自动结束监控')
+    my_logger.info(f'准备监控依赖文件，{monitoring_time}秒后自动结束监控')
     cmd = [
         procmon_path,
         "/Minimized",
@@ -51,7 +48,7 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
         "/Backingfile", procmon_log_path,
         # "/LoadConfig", pmc_base_path,
     ]
-    logging.info("开始启动监控工具,4秒后自动启动你的程序")
+    my_logger.info("开始启动监控工具,4秒后自动启动你的程序")
     procmon_process = subprocess.Popen(cmd)
     time.sleep(4)
     current_env_py = sys.executable.replace('\\', '/')
@@ -62,7 +59,7 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
         if pack_mode == 0:
             main_run_cmd = [current_env_py, main_run_path]
             if not os.path.exists(image_path):
-                logging.error(f'未找到{image_path}')
+                my_logger.error(f'未找到{image_path}')
                 sys.exit()
         else:
             python_exe_path = str(Path(project_dir).joinpath('rundep/python.exe'))
@@ -74,7 +71,7 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
                 main_run_cmd = [pythonw_exe_path, main_run_path]
                 image_path = pythonw_exe_path
             else:
-                logging.warning(f'未找到{project_dir}/rundep文件夹中的python.exe，使用当前环境的python运行脚本')
+                my_logger.warning(f'未找到{project_dir}/rundep文件夹中的python.exe，使用当前环境的python运行脚本')
                 main_run_cmd = [current_env_py, main_run_path]
 
     else:
@@ -82,13 +79,13 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
         image_path = main_run_path
         
     os.chdir(os.path.dirname(main_run_path))
-    logging.info(f"启动你的程序:{main_run_path}")
+    my_logger.info(f"启动你的程序:{main_run_path}")
     main_run_process = subprocess.Popen(main_run_cmd)
     time.sleep(monitoring_time)
     main_run_process.kill()
 
     procmon_process.wait()
-    logging.info("开始保存日志")
+    my_logger.info("开始保存日志")
     cmd = [
         procmon_path,
         "/Minimized",
@@ -127,13 +124,13 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
         os.remove(procmon_log_path)
         os.remove(csv_log_path)
     except Exception as e:
-        logging.error(f"删除日志文件失败:{e}")
+        my_logger.error(f"删除日志文件失败:{e}")
 
     return dependency_files
 
 
 def get_dependency_list(csv_log_path, image_path=None, check_dir=None, pack_mode=0):
-    logging.info('开始分析依赖文件...')
+    my_logger.info('开始分析依赖文件...')
     if pack_mode == 0:
         base_env_dir = sys.base_prefix.lower().replace('\\', '/')
         current_env_dir = sys.prefix.lower().replace('\\', '/')
@@ -172,7 +169,7 @@ def get_dependency_list(csv_log_path, image_path=None, check_dir=None, pack_mode
 
 
 def move_files(check_dir, project_dir, dependency_files):
-    logging.info('开始瘦身...')
+    my_logger.info('开始瘦身...')
     removed_file_dir = os.path.join(project_dir, "removed_file")
 
     moved_file_num = 0
@@ -196,7 +193,7 @@ def move_files(check_dir, project_dir, dependency_files):
                     shutil.move(src_file, os.path.join(dest_folder, filename))
                     moved_file_num += 1
                 except Exception as e:
-                    logging.error(f"无法移动文件: {src_file}: {e}")
+                    my_logger.error(f"无法移动文件: {src_file}: {e}")
 
     # 移除空文件夹
     for root, dirs, files in os.walk(project_dir, topdown=False):
@@ -209,9 +206,9 @@ def move_files(check_dir, project_dir, dependency_files):
                     pass
 
     removed_size = f"{removed_size / (1024 * 1024):.2f}"
-    logging.info(f"瘦身完成，移除了{moved_file_num}个文件, 减小了{removed_size}M")
+    my_logger.info(f"瘦身完成，移除了{moved_file_num}个文件, 减小了{removed_size}M")
     if moved_file_num > 0:
-        logging.info(f"移除的文件保存到了:{removed_file_dir}")
+        my_logger.info(f"移除的文件保存到了:{removed_file_dir}")
 
 
 def to_slim_file(main_run_path: str, check_dir: str, project_dir: str = None, monitoring_time: int = 18, pack_mode=0):

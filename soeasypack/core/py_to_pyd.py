@@ -3,16 +3,17 @@ py编译为pyd
 xmqsvip
 2024-11-30
 """
-
+import logging
 import os
 import glob
 import shutil
 from setuptools import setup
 from Cython.Build import cythonize
 
+from .my_logger import my_logger
 
 def to_pyd(script_dir: str, script_dir_main_py: str, is_del_py: bool = False):
-    print("开始py转为pyd")
+    my_logger.info("开始py转为pyd")
     os.chdir(script_dir)
     temp_build_dir = os.path.join(script_dir, 'temp_build')  # 临时构建目录
     py_files = glob.glob(os.path.join(script_dir, '**', '*.py'), recursive=True)
@@ -22,6 +23,9 @@ def to_pyd(script_dir: str, script_dir_main_py: str, is_del_py: bool = False):
             white_list.append(py_file)
     for py_file in white_list:
         py_files.remove(py_file)
+    if not py_files:
+        logging.warning(f"只有一个主py文件，不可转为pyd")
+        return
     os.makedirs(temp_build_dir, exist_ok=True)
 
     # 编译 .py 文件
