@@ -9,11 +9,19 @@ import csv
 import sys
 import time
 import shutil
+import ctypes
 import subprocess
 from pathlib import Path
 
-from .check_admin import is_admin
 from .my_logger import my_logger
+
+
+def is_admin():
+    try:
+        # 检查是否有管理员权限
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
 
 
 def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode=0,
@@ -78,7 +86,7 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
     else:
         main_run_cmd = main_run_path
         image_path = main_run_path
-        
+
     os.chdir(os.path.dirname(main_run_path))
     my_logger.info(f"启动你的程序:{main_run_path}")
     main_run_process = subprocess.Popen(main_run_cmd)
@@ -150,7 +158,8 @@ def get_dependency_list(csv_log_path, image_path=None, check_dir=None, pack_mode
                     cell_value = row[0].replace('\\', '/')
                     cell_value_ = cell_value.lower()
                     cell_value_2 = row[1].replace('\\', '/').lower()
-                    if cell_value_2 == image_path and cell_value_ and os.path.isfile(cell_value_) and ('__pycache__' not in cell_value_):
+                    if cell_value_2 == image_path and cell_value_ and os.path.isfile(cell_value_) and (
+                            '__pycache__' not in cell_value_):
                         if (check_dir[0] in cell_value_) or (check_dir[1] in cell_value_):
                             dependency_files.add(cell_value)
             else:
@@ -159,7 +168,8 @@ def get_dependency_list(csv_log_path, image_path=None, check_dir=None, pack_mode
                     cell_value = row[0].replace('\\', '/')
                     cell_value_ = cell_value.lower()
                     cell_value_2 = row[1].replace('\\', '/').lower()
-                    if cell_value_2 == image_path and cell_value_ and os.path.isfile(cell_value_) and (check_dir in cell_value_) and ('__pycache__' not in cell_value_):
+                    if cell_value_2 == image_path and cell_value_ and os.path.isfile(cell_value_) and (
+                            check_dir in cell_value_) and ('__pycache__' not in cell_value_):
                         dependency_files.add(cell_value)
         else:
             # 读取的是依赖文件清单表，跳过查找依赖文件
@@ -236,5 +246,3 @@ def to_slim_file(main_run_path: str, check_dir: str, project_dir: str = None,
     dependency_files = check_dependency_files(main_run_path, project_dir, check_dir, monitoring_time=monitoring_time,
                                               pack_mode=pack_mode)
     move_files(check_dir, project_dir, dependency_files)
-
-

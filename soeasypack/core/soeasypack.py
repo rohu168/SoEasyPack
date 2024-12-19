@@ -21,8 +21,7 @@ from concurrent.futures import as_completed, ThreadPoolExecutor
 
 from .my_logger import my_logger
 from .py_to_pyd import to_pyd
-from .check_admin import is_admin
-from .slimfile import to_slim_file, check_dependency_files
+from .slimfile import is_admin, to_slim_file, check_dependency_files
 
 
 
