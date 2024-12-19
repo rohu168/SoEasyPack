@@ -212,13 +212,15 @@ def move_files(check_dir, project_dir, dependency_files):
         my_logger.info(f"移除的文件保存到了:{removed_file_dir}")
 
 
-def to_slim_file(main_run_path: str, check_dir: str, project_dir: str = None, monitoring_time: int = 18, pack_mode=0):
+def to_slim_file(main_run_path: str, check_dir: str, project_dir: str = None,
+                 monitoring_time: int = 18, pack_mode=1) -> None:
     """
     项目瘦身
     :param main_run_path: 项目主运行文件路径,py或其它
     :param check_dir: 需要瘦身的目录
     :param project_dir:  项目目录
     :param monitoring_time:  监控工具监控时长（秒）
+    :param pack_mode: 若单独使用瘦身功能不必填写
     :return:
     """
     if not is_admin():
