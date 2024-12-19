@@ -182,9 +182,11 @@ def copy_embed_depend(save_dir, base_env_dir):
 def copy_py_script(main_py_path, save_dir):
     my_logger.info('复制你的脚本目录...')
     relpath_name = None
+    main_py_path = main_py_path.replace('\\', '/')
+    save_dir = save_dir.replace('\\', '/')
     main_py_dir = os.path.dirname(main_py_path)
     appdata_dir = Path.joinpath(Path(save_dir), 'rundep/AppData')
-    if main_py_dir[0] == save_dir[0]:
+    if main_py_dir in save_dir:
         relpath_name = os.path.relpath(save_dir, main_py_dir)
         relpath_name = relpath_name.replace('\\', '/').split('/',1)[0]
 
