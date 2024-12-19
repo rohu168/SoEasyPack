@@ -215,9 +215,9 @@ start /B "" %python_path% main.pyc"
     return bat_path
 
 
-def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path: str = '',
+def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path: str = None,
               embed_exe: bool = False, onefile: bool = False, pack_mode=0,
-              file_version: str = '', product_name: str = '', company: str = '', uac: bool = False,
+              file_version: str = None, product_name: str = None, company: str = None, uac: bool = False,
               ):
     """
     使用go语言编译
@@ -334,16 +334,15 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
         go_require = '''
 module go_py
 go 1.23
-
 '''
         fp.write(go_require)
 
     pro = subprocess.Popen(f'{winres_path} make --in {save_winres_json}')
     pro.wait()
     save_exe_path = Path.joinpath(Path(save_dir), exe_name + '.exe')
-    is_show_cmd = '-ldflags "-s -w -H windowsgui"' if hide_cmd else '-ldflags "-s -w"'
+    is_show_cmd = '-ldflags "-s -w -H=windowsgui"' if hide_cmd else '-ldflags "-s -w"'
 
-    command = f'{go_exe_path} build {is_show_cmd} -o {save_exe_path}'
+    command = f'{go_exe_path} build {is_show_cmd} -buildvcs=false -o {save_exe_path}'
     build_process = subprocess.Popen(command)
     build_process.wait()
     os.chdir(save_dir)
