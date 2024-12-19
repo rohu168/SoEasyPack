@@ -21,6 +21,7 @@ from concurrent.futures import as_completed, ThreadPoolExecutor
 
 from .my_logger import my_logger
 from .py_to_pyd import to_pyd
+from .check_admin import is_admin
 from .slimfile import to_slim_file, check_dependency_files
 
 
@@ -416,6 +417,9 @@ def to_pack(main_py_path: str, save_dir: str = None,
     :param kwargs:
     :return:
     """
+    if not is_admin():
+        my_logger.error('请以管理员身份运行本程序(或以管理员身份打开的编辑器中执行此程序)')
+        return
 
     if os.path.dirname(main_py_path) == save_dir:
         my_logger.error('save_dir不能是main_py_path所在目录')

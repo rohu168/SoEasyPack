@@ -12,6 +12,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from .check_admin import is_admin
 from .my_logger import my_logger
 
 
@@ -48,9 +49,9 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
         "/Backingfile", procmon_log_path,
         # "/LoadConfig", pmc_base_path,
     ]
-    my_logger.info("开始启动监控工具,4秒后自动启动你的程序")
+    my_logger.info("开始启动监控工具,2秒后自动启动你的程序")
     procmon_process = subprocess.Popen(cmd)
-    time.sleep(4)
+    time.sleep(2)
     current_env_py = sys.executable.replace('\\', '/')
     image_path = str(sys.base_prefix).replace('\\', '/') + '/python.exe'
 
@@ -220,6 +221,10 @@ def to_slim_file(main_run_path: str, check_dir: str, project_dir: str = None, mo
     :param monitoring_time:  监控工具监控时长（秒）
     :return:
     """
+    if not is_admin():
+        my_logger.error('请以管理员身份运行本程序(或以管理员身份打开的编辑器中执行此程序)')
+        return
+
     if project_dir is None:
         project_dir = check_dir
 
