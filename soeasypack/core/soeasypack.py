@@ -181,14 +181,16 @@ def copy_embed_depend(save_dir, base_env_dir):
 
 def copy_py_script(main_py_path, save_dir):
     my_logger.info('复制你的脚本目录...')
-
+    relpath_name = None
     main_py_dir = os.path.dirname(main_py_path)
-    relpath_name = os.path.dirname(os.path.relpath(save_dir, main_py_dir))
     appdata_dir = Path.joinpath(Path(save_dir), 'rundep/AppData')
+    if main_py_dir[0] == save_dir[0]:
+        relpath_name = os.path.relpath(save_dir, main_py_dir)
+        relpath_name = relpath_name.replace('\\', '/').split('/',1)[0]
 
     def ignore_save_dir(src, names):
         ignore_names = ['.git', '.svn', '.idea', '__pycache__', 'venv']
-        if src == main_py_dir and relpath_name in names:
+        if src == main_py_dir and relpath_name and relpath_name in names:
             ignore_names.append(relpath_name)
         return ignore_names
 
@@ -423,7 +425,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
 
     if not save_dir:
         # 获取桌面目录
-        save_dir = Path.joinpath(Path.home(), 'Desktop/SoEasyPack')
+        save_dir = Path.joinpath(Path.home(), 'Desktop/pack_out')
     os.makedirs(save_dir, exist_ok=True)
     if onefile:
         embed_exe = True
