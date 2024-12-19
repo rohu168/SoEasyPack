@@ -1,7 +1,7 @@
 [![PyPI Downloads](https://static.pepy.tech/badge/soeasypack)](https://pepy.tech/projects/soeasypack)
 # SoEasyPack
 - 此项目受[PyStand](https://github.com/skywind3000/PyStand "PyStand")和[PythonSizeCruncher](https://github.com/mengdeer589/PythonSizeCruncher "PythonSizeCruncher")启发。
-- 不需要复制嵌入式包，也不必再二次瘦身,一次打包理论上就是最小依赖
+- 不需要复制嵌入式包，也不必再二次瘦身,一次打包理论上就是最小依赖文件数
 - 用简易的方式复制你的python项目并自动精准匹配环境依赖，几乎没有什么多余文件，
   并且可以生成一个exe启动器启动项目。（用go语言编译,已内置简化过的go环境）
 - 原理：使用微软[procmon](https://learn.microsoft.com/en-us/sysinternals/downloads/procmon "procmon")进程监控工具（已内置），监控项目运行时访问的文件记录
@@ -36,28 +36,29 @@ soeasypack is available on PyPI. You can install it through pip::
 
 - **1**: 模式介绍
 - 项目有三种打包模式：【普通打包】和【快速打包】以及【伪轻量打包】（默认使用快速打包）.
-  pack_mode：0/快速打包模式 ，1/普通打包模式， 2/伪轻量打包模式
+- pack_mode：0/快速打包模式 ，1/普通打包模式， 2/伪轻量打包模式
 
 - 普通打包会先复制当前python主环境的必要官方文件，然后复制当前py环境的整个site-packages
-  文件夹到你指定的保存目录，然后启动分析工具分析依赖文件，然后根据依赖文件去删除site-packages
-  中无用的文件，会保留被删除的文件到removed_file中，然后自动生成exe, 还可选将你的脚本文件转为pyd,
-  最后项目就打包完成了。因为会复制整个site-packages文件夹，所以普通模式只建议在虚拟环境中使用。
+文件夹到你指定的保存目录，然后启动分析工具分析依赖文件，然后根据依赖文件去删除rundep文件夹
+中无用的文件，会保留被删除的文件到removed_file中，然后自动生成exe, 还可选将你的脚本文件转为pyd,
+最后项目就打包完成了。因为会复制整个site-packages文件夹，所以普通模式只建议在虚拟环境中使用。
        
 - 快速打包是先启动分析工具分析依赖文件。然后把依赖文件复制到保存目录，再自动生成exe, 没有项目瘦身这一步骤，
-  所以没有虚拟环境的话，建议使用快速打包模式，它不会复制整个site-packages文件夹
+所以没有虚拟环境的话，建议使用快速打包模式，它不会复制整个site-packages文件夹
 
 - 伪轻量打包是复制当前python主环境除了site-packages文件夹之外的必要官方文件，然后复制用户脚本目录，复制requirements.txt,
-  用户启动程序后检查依赖是否缺失，缺失自动pip下载,下载完成后rundep目录生成compiled_pip.txt，用以下次启动判断是否需要下载依赖项，
+用户启动程序后检查依赖是否缺失，缺失自动pip下载,下载完成后rundep目录生成compiled_pip.txt，用以下次启动判断是否需要下载依赖项，
 
 - **2**: 嵌入exe介绍
 - 普通嵌入exe：设置embed_exe=True,会把rundep/AppData文件夹下用户的所有.py文件转换为.pyc，然后嵌入exe中，其它类型和其它文件夹不会嵌入。
 - 单文件exe：设置onefile=True,会把rundep/AppData文件夹下用户的所有.py文件转换为.pyc，然后嵌入exe中，
-  然后把rundep文件下所有文件压缩成一个zip压缩包嵌入exe中，exe运行时会解压缩到临时目录，退出程序则删除临时目录.
-  其它制作单exe文件方法：使用[Enigma Virtual Box](https://www.enigmaprotector.com/cn/downloads.html)工具打包成只有一个exe  
+然后把rundep文件下所有文件压缩成一个zip压缩包嵌入exe中，exe运行时会解压缩到临时目录，退出程序则删除临时目录.
+其它制作单exe文件方法：使用[Enigma Virtual Box](https://www.enigmaprotector.com/cn/downloads.html)工具打包成只有一个exe  
 
 - **3**: 注意事项
-- 因360安全卫士会拦截procmon相关工具, 所以，打包前请先关闭360安全卫士。
-  procmon启动时会弹出用户账户控制确认窗口，请立即点击确定，若4秒内没有点击确定，则用户程序已启动，导致监控程序不能完整记录依赖文件
+- 因360安全卫士会拦截procmon相关工具, 所以，打包前请先关闭360安全卫士或放行。
+- procmon启动时会弹出用户账户控制确认窗口，请立即点击确定，若4秒内没有点击确定，则用户程序已启动，导致监控程序不能完整记录依赖文件,
+如果不想每次都弹出用户账户控制确认窗口，则以管理员身份打开编辑器，或以管理员身份运行打包代码，
 - 单文件exe运行结束后因不能释放所有dll（原因不明），导致不能完全删除临时目录所有文件，会有几兆残留，
   所以程序结束时会自动创建任务计划程序1分钟后清理创建的临时目录，若一分钟内多次启动多次结束，因任务计划程序被覆盖，
   则不会删除前几次创建的临时目录残留，单文件exe代码中不可使用sys.exit()，否则无法删除临时目录
