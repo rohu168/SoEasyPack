@@ -25,7 +25,7 @@ def is_admin():
 
 
 def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode=0,
-                           monitoring_time=18, except_packages=None):
+                           monitoring_time=18, except_packages=None, delay_time=3):
     """
     检查依赖文件
     """
@@ -44,6 +44,7 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
         return dependency_files
 
     my_logger.info('当你的项目稍后自动运行后，请进行一些必要的功能操作：如点击运行按钮等,否则可能会造成依赖缺失')
+    print("以管理员身份打开的编辑器中执行此程序可避免弹出用户账户控制窗口提示")
     time.sleep(5)
     if os.path.exists(procmon_log_path):
         os.remove(procmon_log_path)
@@ -57,9 +58,12 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
         "/Backingfile", procmon_log_path,
         # "/LoadConfig", pmc_base_path,
     ]
-    my_logger.info("开始启动监控工具,2秒后自动启动你的程序")
+
+    my_logger.info(f"开始启动监控工具,{delay_time}秒后自动启动你的程序")
+    if is_admin():
+        delay_time = 1
     procmon_process = subprocess.Popen(cmd)
-    time.sleep(2)
+    time.sleep(delay_time)
     current_env_py = sys.executable.replace('\\', '/')
     image_path = str(sys.base_prefix).replace('\\', '/') + '/python.exe'
 
@@ -223,7 +227,7 @@ def move_files(check_dir, project_dir, dependency_files):
 
 
 def to_slim_file(main_run_path: str, check_dir: str, project_dir: str = None,
-                 monitoring_time: int = 18, pack_mode=1) -> None:
+                 monitoring_time: int = 18, pack_mode=1, delay_time: int = 3) -> None:
     """
     项目瘦身
     :param main_run_path: 项目主运行文件路径,py或其它
@@ -231,11 +235,9 @@ def to_slim_file(main_run_path: str, check_dir: str, project_dir: str = None,
     :param project_dir:  项目目录
     :param monitoring_time:  监控工具监控时长（秒）
     :param pack_mode: 若单独使用瘦身功能不必填写
+    :param delay_time:  启动监控工具后延时几秒启动用户程序
     :return:
     """
-    if not is_admin():
-        my_logger.error('请以管理员身份运行本程序(或以管理员身份打开的编辑器中执行此程序)')
-        return
 
     if project_dir is None:
         project_dir = check_dir
@@ -244,5 +246,5 @@ def to_slim_file(main_run_path: str, check_dir: str, project_dir: str = None,
     check_dir = check_dir.replace("\\", "/")
     project_dir = project_dir.replace("\\", "/")
     dependency_files = check_dependency_files(main_run_path, project_dir, check_dir, monitoring_time=monitoring_time,
-                                              pack_mode=pack_mode)
+                                              pack_mode=pack_mode, delay_time=delay_time)
     move_files(check_dir, project_dir, dependency_files)

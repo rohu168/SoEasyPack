@@ -102,7 +102,6 @@ func extractZip(zipReader io.ReaderAt, size int64, dest string) error {
 
 		// 检查文件是否需要解压
 		if f.FileInfo().IsDir() {
-			// 创建目录
 			os.MkdirAll(fpath, os.ModePerm)
 			continue
 		}
@@ -294,7 +293,13 @@ globals_ = globals().update(globals_)
 # 将十六进制字符串转换回字节序列
 pyc_data = bytes.fromhex("%s")
 compiled_code = marshal.loads(pyc_data[16:])
-exec(compiled_code, globals_)
+try:
+    exec(compiled_code, globals_)
+except:
+    import ctypes
+    import traceback
+    e = traceback.format_exc()
+    ctypes.windll.user32.MessageBoxW(0, e, "错误", 0x10)
 `, mainPyCode)
 
 	// 加载 pythonxx.dll
@@ -345,8 +350,8 @@ exec(compiled_code, globals_)
 	if onefile {
 		// 因无法释放pythonXX.dll,会有残留，所以使用任务计划再次删除临时目录
 		taskName := "DeleteTempDirTask"
-		command := fmt.Sprintf(`cmd /b /c rd /s /q "%s"`, currentDir) // 删除目录的命令
-        //command := fmt.Sprintf(`powershell.exe -WindowStyle Hidden -Command Remove-Item -Recurse -Force "%s"`, currentDir)
+		// command := fmt.Sprintf(`cmd /b /c rd /s /q "%s"`, currentDir) // 删除目录的命令
+		command := fmt.Sprintf(`powershell.exe -WindowStyle Hidden -Command Remove-Item -Recurse -Force "%s"`, currentDir)
 		runTime := time.Now().Add(1 * time.Minute).Format("15:04:05") // 格式为 HH:mm
 
 		// 创建任务

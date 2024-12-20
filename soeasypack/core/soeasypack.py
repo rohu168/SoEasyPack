@@ -21,9 +21,7 @@ from concurrent.futures import as_completed, ThreadPoolExecutor
 
 from .my_logger import my_logger
 from .py_to_pyd import to_pyd
-from .slimfile import is_admin, to_slim_file, check_dependency_files
-
-
+from .slimfile import to_slim_file, check_dependency_files
 
 
 def copy_file(src, dest):
@@ -151,6 +149,10 @@ def copy_py_env(save_dir, main_run_path=None, pack_mode=0, monitoring_time=18, e
         os.remove(pyenv_file)
     scripts_dir = Path.joinpath(Path(save_dir), 'rundep/Scripts')
     shutil.rmtree(scripts_dir, ignore_errors=True)
+    if embed_exe:
+        python_exe_path = Path.joinpath(Path(save_dir), 'rundep/python.exe')
+        if os.path.exists(python_exe_path):
+            os.remove(python_exe_path)
 
 
 def copy_embed_depend(save_dir, base_env_dir):
@@ -387,7 +389,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
             auto_py_pyc: bool = True, pyc_optimize: Literal[-1, 0, 1, 2] = 1,
             auto_py_pyd: bool = False, embed_exe: bool = False, onefile: bool = False,
             monitoring_time: int = 18, uac: bool = False, requirements_path: str = None,
-            except_packages: [str] = None,
+            except_packages: [str] = None, delay_time: int = 3,
             **kwargs) -> None:
     """
     :param main_py_path:主入口py文件路径
@@ -413,12 +415,10 @@ def to_pack(main_py_path: str, save_dir: str = None,
     :param uac: 以管理员身份运行
     :param requirements_path: 轻量模式的依赖清单文件路径
     :param except_packages: 排除的第三方包名称
+    :param delay_time: 启动监控工具后延时几秒启动用户程序
     :param kwargs:
     :return:
     """
-    if not is_admin():
-        my_logger.error('请以管理员身份运行本程序(或以管理员身份打开的编辑器中执行此程序)')
-        return
 
     if os.path.dirname(main_py_path) == save_dir:
         my_logger.error('save_dir不能是main_py_path所在目录')
@@ -462,7 +462,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
 
     if pack_mode == 1:
         to_slim_file(new_main_py_path, check_dir=rundep_dir, project_dir=save_dir, monitoring_time=monitoring_time,
-                     pack_mode=pack_mode)
+                     pack_mode=pack_mode, delay_time=delay_time)
     elif pack_mode == 2:
         my_logger.info("复制requirements.txt")
         if requirements_path:
