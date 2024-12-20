@@ -190,7 +190,7 @@ def copy_py_script(main_py_path, save_dir):
     appdata_dir = Path.joinpath(Path(save_dir), 'rundep/AppData')
     if main_py_dir in save_dir:
         relpath_name = os.path.relpath(save_dir, main_py_dir)
-        relpath_name = relpath_name.replace('\\', '/').split('/',1)[0]
+        relpath_name = relpath_name.replace('\\', '/').split('/', 1)[0]
 
     def ignore_save_dir(src, names):
         ignore_names = ['.git', '.svn', '.idea', '__pycache__', 'venv']
@@ -222,7 +222,7 @@ start /B "" %python_path% main.pyc"
 
 
 def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path: str = None,
-              embed_exe: bool = False, onefile: bool = False, pack_mode=0,
+              embed_exe: bool = False, onefile: bool = False, pack_mode=0, winres_json_path: str = None,
               file_version: str = None, product_name: str = None, company: str = None, uac: bool = False,
               ):
     """
@@ -234,6 +234,7 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
     :param embed_exe:
     :param onefile:
     :param pack_mode:
+    :param winres_json_path:
     :param file_version:
     :param product_name:
     :param company:
@@ -245,7 +246,7 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
     current_dir = Path(__file__).parent.parent
     go_exe_path = Path.joinpath(current_dir, 'dep_exe/go_env/bin/go.exe')
     winres_path = Path.joinpath(current_dir, 'dep_exe/go_env/go-winres.exe')
-    winres_json_path = Path.joinpath(current_dir, 'dep_exe/go_env/winres.json')
+    winres_json_source = Path.joinpath(current_dir, 'dep_exe/go_env/winres.json')
     temp_build_dir = Path.joinpath(Path(save_dir), 'temp_build')
     os.makedirs(temp_build_dir, exist_ok=True)
     save_winres_json = Path.joinpath(temp_build_dir, "winres.json")
@@ -320,9 +321,9 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
         my_logger.warning("未找到图标文件，将使用默认图标")
         icon_name = ''
 
-    if not os.path.exists(save_winres_json):
-        shutil.copyfile(winres_json_path, save_winres_json)
-        winres_json = json.load(open(winres_json_path, encoding='utf-8'))
+    if not winres_json_path:
+        shutil.copyfile(winres_json_source, save_winres_json)
+        winres_json = json.load(open(winres_json_source, encoding='utf-8'))
         if icon_name:
             winres_json["RT_GROUP_ICON"]["APP"]["0000"].append(icon_name)
         if file_version:
@@ -334,6 +335,10 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
         if uac:
             winres_json["RT_MANIFEST"]["#1"]["0409"]["execution-level"] = "requireAdministrator"
         json.dump(winres_json, open(save_winres_json, 'w', encoding='utf-8'), indent=4)
+    else:
+        if not os.path.exists(winres_json_path):
+            raise FileNotFoundError(f'未找到winres.json文件:{winres_json_path}')
+        shutil.copyfile(winres_json_path, save_winres_json)
 
     os.chdir(temp_build_dir)
     with open('go.mod', mode='w', encoding='utf-8') as fp:
@@ -389,7 +394,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
             auto_py_pyc: bool = True, pyc_optimize: Literal[-1, 0, 1, 2] = 1,
             auto_py_pyd: bool = False, embed_exe: bool = False, onefile: bool = False,
             monitoring_time: int = 18, uac: bool = False, requirements_path: str = None,
-            except_packages: [str] = None, delay_time: int = 3,
+            except_packages: [str] = None, winres_json_path : str = None, delay_time: int = 3,
             **kwargs) -> None:
     """
     :param main_py_path:主入口py文件路径
@@ -415,6 +420,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
     :param uac: 以管理员身份运行
     :param requirements_path: 轻量模式的依赖清单文件路径
     :param except_packages: 排除的第三方包名称
+    :param winres_json_path: exe应用信息文件路径
     :param delay_time: 启动监控工具后延时几秒启动用户程序
     :param kwargs:
     :return:
@@ -492,6 +498,6 @@ def to_pack(main_py_path: str, save_dir: str = None,
     if not (embed_exe or onefile):
         create_bat(save_dir)
     build_exe(save_dir, hide_cmd, exe_name, png_path, embed_exe=embed_exe, onefile=onefile,
-              uac=uac, pack_mode=pack_mode, **kwargs)
+              uac=uac, pack_mode=pack_mode, winres_json_path=winres_json_path, **kwargs)
 
     my_logger.info('结束')

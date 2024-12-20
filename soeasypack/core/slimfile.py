@@ -44,7 +44,10 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
         return dependency_files
 
     my_logger.info('当你的项目稍后自动运行后，请进行一些必要的功能操作：如点击运行按钮等,否则可能会造成依赖缺失')
-    print("以管理员身份打开的编辑器中执行此程序可避免弹出用户账户控制窗口提示")
+    if is_admin():
+        delay_time = 1
+    else:
+        print("以管理员身份打开的编辑器中执行此程序可避免弹出用户账户控制窗口提示")
     time.sleep(5)
     if os.path.exists(procmon_log_path):
         os.remove(procmon_log_path)
@@ -60,8 +63,6 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
     ]
 
     my_logger.info(f"开始启动监控工具,{delay_time}秒后自动启动你的程序")
-    if is_admin():
-        delay_time = 1
     procmon_process = subprocess.Popen(cmd)
     time.sleep(delay_time)
     current_env_py = sys.executable.replace('\\', '/')
