@@ -141,84 +141,100 @@ func (c *stderrCapturer) Write(p []byte) (n int, err error) {
 	return c.buf.Write(p)
 }
 func main() {
-	cDir, _ := os.Getwd()
-
-	var currentDir string
-	if onefile {
-		// 创建临时目录
-		var err error
-		currentDir, err = os.MkdirTemp("", "soeasypack")
-		if err != nil {
-			return
-		}
-		defer os.RemoveAll(currentDir) // 程序退出时删除临时目录
-
-		// 读取嵌入的zip文件内容
-		zipData, err := embedZip.ReadFile("rundep.zip")
-		if err != nil {
-			MessageBox("错误", "读取压缩包数据失败: "+err.Error())
-			return
-		}
-
-		// 使用bytes.Reader包装zip数据，以提供io.ReaderAt接口
-		zipReader := bytes.NewReader(zipData)
-
-		// 解压zip文件到临时目录
-		if err := extractZip(zipReader, int64(len(zipData)), currentDir); err != nil {
-			MessageBox("错误", "解压数据到临时目录失败: "+err.Error())
-			return
-		}
-	} else {
-		currentDir, _ = os.Getwd()
-		currentDir = currentDir + "\\rundep"
-	}
-
-	os.Chdir(currentDir)
-	if packmode == 2 {
-		isExist := fileExists(currentDir + "\\compiled_pip.txt")
-		if !isExist {
-			MessageBox("提示", "依赖包不全，将准备自动下载依赖包")
-			cmd := exec.Command("cmd", "/c", "python.exe -m ensurepip --upgrade")
-
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			err := cmd.Run()
+	var pyDllPath string
+	SEPHOME := os.Getenv("SEPHOME")
+	if SEPHOME == "" {
+		originDir, _ := os.Getwd()
+		os.Setenv("originDir", originDir)
+		if onefile {
+			// 创建临时目录
+			var err error
+			currentDir, err := os.MkdirTemp("", "soeasypack")
 			if err != nil {
-				MessageBox("提示", "自动下载依赖包失败:"+err.Error())
-				os.Exit(0)
-			} else {
-				cmd := exec.Command("cmd", "/c", "python.exe -m pip install -r AppData\\requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple")
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
+				return
+			}
+			defer os.RemoveAll(currentDir) // 程序退出时删除临时目录
 
-				err := cmd.Run()
-				if err != nil {
-					MessageBox("提示", "安装依赖包失败:"+err.Error())
-					os.Exit(0)
-				} else {
-					f, _ := os.Create(currentDir + "\\compiled_pip.txt")
-					f.Close()
-				}
+			// 读取嵌入的zip文件内容
+			zipData, err := embedZip.ReadFile("rundep.zip")
+			if err != nil {
+				MessageBox("错误", "读取压缩包数据失败: "+err.Error())
+				os.Exit(1)
 			}
 
+			// 使用bytes.Reader包装zip数据，以提供io.ReaderAt接口
+			zipReader := bytes.NewReader(zipData)
+
+			// 解压zip文件到临时目录
+			if err := extractZip(zipReader, int64(len(zipData)), currentDir); err != nil {
+				MessageBox("错误", "解压数据到临时目录失败: "+err.Error())
+				os.Exit(1)
+			}
+			SEPHOME = currentDir
+			os.Setenv("SEPHOME", currentDir)
+			os.Setenv("PYTHONHOME", SEPHOME)
+			pyDllPath = SEPHOME + "\\python3.dll"
+			// 切换工作目录
+			os.Chdir(SEPHOME + "\\AppData")
+
+		} else {
+			currentDir, _ := os.Getwd()
+			SEPHOME = currentDir
+			os.Setenv("SEPHOME", currentDir)
+			os.Setenv("PYTHONHOME", SEPHOME+"\\rundep")
+			pyDllPath = SEPHOME + "\\rundep\\python3.dll"
+			os.Chdir(SEPHOME + "\\rundep\\AppData")
+			// 轻量打包模式
+			if packmode == 2 {
+				isExist := fileExists("compiled_pip.txt")
+				if !isExist {
+					MessageBox("提示", "依赖包不全，将准备自动下载依赖包")
+					cmd := exec.Command("cmd", "/c", "python.exe -m ensurepip --upgrade")
+
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+					err := cmd.Run()
+					if err != nil {
+						MessageBox("提示", "自动下载依赖包失败:"+err.Error())
+						os.Exit(1)
+					} else {
+						cmd := exec.Command("cmd", "/c", "python.exe -m pip install -r AppData\\requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple")
+						cmd.Stdout = os.Stdout
+						cmd.Stderr = os.Stderr
+
+						err := cmd.Run()
+						if err != nil {
+							MessageBox("提示", "安装依赖包失败:"+err.Error())
+							os.Exit(1)
+						} else {
+							f, _ := os.Create("compiled_pip.txt")
+							f.Close()
+						}
+					}
+
+				}
+
+			}
 		}
 
+		os.Setenv("pyDllPath", pyDllPath)
+		handle, addr := createSharedMemory()
+		defer windows.CloseHandle(handle)
+		defer windows.UnmapViewOfFile(addr)
+
+	} else {
+		pyDllPath = os.Getenv("pyDllPath")
+		os.Setenv("isSubProcess", "1")
 	}
-
-	handle, addr := createSharedMemory()
-	defer windows.CloseHandle(handle)
-	defer windows.UnmapViewOfFile(addr)
-
-	os.Setenv("PYTHONHOME", currentDir)
 
 	pyCode := fmt.Sprintf(`
 import sys
 import marshal
-import multiprocessing.shared_memory as shm
+import zipfile
 import importlib.abc
 import importlib.util
-import zipfile
 from io import BytesIO, BufferedReader
+from multiprocessing import shared_memory as shm
 
 
 class ZipMemoryLoader(importlib.abc.MetaPathFinder, importlib.abc.Loader):
@@ -303,7 +319,7 @@ except:
 `, mainPyCode)
 
 	// 加载 pythonxx.dll
-	pythonDll, err := windows.LoadDLL(currentDir + "\\python3.dll")
+	pythonDll, err := windows.LoadDLL(pyDllPath)
 	if err != nil {
 		MessageBox("错误", "无法加载 python3.dll: "+err.Error())
 		return
@@ -327,7 +343,6 @@ except:
 		cArgs = append(cArgs, uintptr(unsafe.Pointer(arg_)))
 	}
 
-	os.Chdir(currentDir + "\\AppData")
 	// 调用 Py_Main 函数执行 Python 脚本
 	argc := len(args)
 	argv := uintptr(unsafe.Pointer(&cArgs[0]))
@@ -336,40 +351,43 @@ except:
 		MessageBox("错误", "执行失败, cmd 运行 run.bat 查看报错信息,\n或设置hide_cmd为False重新编译然后控制台运行")
 	}
 
-	// 确保 Python 环境被正确清理
-	finalize, _ := pythonDll.FindProc("Py_FinalizeEx")
-	finalize.Call()
+	isSubProcess := os.Getenv("isSubProcess")
+	if isSubProcess == "" {
+		// 确保 Python 环境被正确清理
+		finalize, _ := pythonDll.FindProc("Py_FinalizeEx")
+		finalize.Call()
+		originDir := os.Getenv("originDir")
+		os.Chdir(originDir)
+		pythonDll.Release()
 
-	os.Chdir(cDir)
-	pythonDll.Release()
+		kernel32 := windows.NewLazySystemDLL("kernel32.dll")
+		procFreeLibrary := kernel32.NewProc("FreeLibrary")
+		procFreeLibrary.Call(uintptr(pythonDll.Handle))
 
-	kernel32 := windows.NewLazySystemDLL("kernel32.dll")
-	procFreeLibrary := kernel32.NewProc("FreeLibrary")
-	procFreeLibrary.Call(uintptr(pythonDll.Handle))
+		if onefile {
+			// 因无法释放pythonXX.dll,会有残留，所以使用任务计划再次删除临时目录
+			taskName := "DeleteTempDirTask"
+			// command := fmt.Sprintf(`cmd /b /c rd /s /q "%s"`, currentDir) // 删除目录的命令
+			command := fmt.Sprintf(`powershell.exe -WindowStyle Hidden -Command Remove-Item -Recurse -Force "%s"`, SEPHOME)
+			runTime := time.Now().Add(1 * time.Minute).Format("15:04:05") // 格式为 HH:mm
 
-	if onefile {
-		// 因无法释放pythonXX.dll,会有残留，所以使用任务计划再次删除临时目录
-		taskName := "DeleteTempDirTask"
-		// command := fmt.Sprintf(`cmd /b /c rd /s /q "%s"`, currentDir) // 删除目录的命令
-		command := fmt.Sprintf(`powershell.exe -WindowStyle Hidden -Command Remove-Item -Recurse -Force "%s"`, currentDir)
-		runTime := time.Now().Add(1 * time.Minute).Format("15:04:05") // 格式为 HH:mm
+			// 创建任务
+			cmd := exec.Command("schtasks", "/Create",
+				"/TN", taskName, // 任务名称
+				"/TR", command, // 执行的命令
+				"/SC", "ONCE", // 一次性任务
+				"/ST", runTime, // 执行时间
+				"/RL", "HIGHEST",
+				"/RU", "SYSTEM",
+				"/F", // 强制覆盖已有任务
+			)
+			// 设置 SysProcAttr 以隐藏命令行窗口
+			cmd.SysProcAttr = &windows.SysProcAttr{
+				CreationFlags: windows.CREATE_NO_WINDOW,
+			}
+			cmd.Run()
 
-		// 创建任务
-		cmd := exec.Command("schtasks", "/Create",
-			"/TN", taskName, // 任务名称
-			"/TR", command, // 执行的命令
-			"/SC", "ONCE", // 一次性任务
-			"/ST", runTime, // 执行时间
-			"/RL", "HIGHEST",
-			"/RU", "SYSTEM",
-			"/F", // 强制覆盖已有任务
-		)
-		// 设置 SysProcAttr 以隐藏命令行窗口
-		cmd.SysProcAttr = &windows.SysProcAttr{
-			CreationFlags: windows.CREATE_NO_WINDOW,
 		}
-		cmd.Run()
-
 	}
 
 }

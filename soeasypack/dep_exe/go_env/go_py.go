@@ -1,8 +1,8 @@
 /*
  * @Author: xmqsvip
  * @Date: 2024-12-07
- * @LastEditTime: 2024-12-07
-*/
+ * @LastEditTime: 2024-12-22 17:13:29
+ */
 
 package main
 
@@ -41,28 +41,37 @@ func fileExists(filename string) bool {
 }
 
 func main() {
-
-	// 获取当前目录并设置 PYTHONHOME
-	currentDir, _ := os.Getwd()
-	os.Setenv("PYTHONHOME", currentDir+"\\rundep")
-	// 切换当前工作目录
-	os.Chdir(currentDir+"\\rundep\\AppData")
-	//获取程序主入口文件
-	mianFiles := []string{"main.pyc", "main.py", "main.pyw"}
+	var pyDllPath string
 	var mainFile string
-	for _, file := range mianFiles {
-		if fileExists(file) {
-			mainFile = file
-			break
+	pythonHome := os.Getenv("PYTHONHOME")
+	if pythonHome == "" {
+		// 获取当前目录并设置 PYTHONHOME
+		currentDir, _ := os.Getwd()
+		os.Setenv("PYTHONHOME", currentDir+"\\rundep")
+		pyDllPath = currentDir + "\\rundep\\python3.dll"
+		os.Setenv("pyDllPath", pyDllPath)
+		// 切换工作目录
+		os.Chdir(currentDir + "\\rundep\\AppData")
+		//获取程序主入口文件
+		mianFiles := []string{"main.pyc", "main.py", "main.pyw"}
+		for _, file := range mianFiles {
+			if fileExists(file) {
+				mainFile = file
+				os.Setenv("mainFile", mainFile)
+				break
+			}
 		}
-	}
-	if mainFile == "" {
-		MessageBox("错误", currentDir+"\\rundep\\AppData,找不到 main.pyc(.py.pyw)文件")
-		return
+		if mainFile == "" {
+			MessageBox("错误", pythonHome+"\\AppData,找不到 main.pyc(.py.pyw)文件")
+			os.Exit(1)
+		}
+	} else {
+		pyDllPath = os.Getenv("pyDllPath")
+		mainFile = os.Getenv("mainFile")
 	}
 
 	// 加载 python3.dll
-	pythonDll, err := syscall.LoadDLL(currentDir+"\\rundep\\python3.dll")
+	pythonDll, err := syscall.LoadDLL(pyDllPath)
 	if err != nil {
 		MessageBox("错误", "无法加载 python3.dll: "+err.Error())
 		return
@@ -77,7 +86,6 @@ func main() {
 	}
 
 	args := []string{"python", mainFile}
-
 	args = append(args, os.Args[1:]...)
 
 	// 将命令行参数转换为 C 字符串
