@@ -164,18 +164,17 @@ func main() {
 
 			// 使用bytes.Reader包装zip数据，以提供io.ReaderAt接口
 			zipReader := bytes.NewReader(zipData)
-
+			rundepDir := currentDir + "\\rundep"
 			// 解压zip文件到临时目录
-			if err := extractZip(zipReader, int64(len(zipData)), currentDir); err != nil {
+			if err := extractZip(zipReader, int64(len(zipData)), rundepDir); err != nil {
 				MessageBox("错误", "解压数据到临时目录失败: "+err.Error())
 				os.Exit(1)
 			}
 			SEPHOME = currentDir
 			os.Setenv("SEPHOME", currentDir)
-			os.Setenv("PYTHONHOME", SEPHOME)
-			pyDllPath = SEPHOME + "\\python3.dll"
-			// 切换工作目录
-			os.Chdir(SEPHOME + "\\AppData")
+			os.Setenv("PYTHONHOME", SEPHOME+"\\rundep")
+			pyDllPath = SEPHOME + "\\rundep\\python3.dll"
+			os.Chdir(SEPHOME + "\\rundep\\AppData")
 
 		} else {
 			currentDir, _ := os.Getwd()
@@ -303,7 +302,7 @@ zip_data = shared_mem.buf.tobytes()
 shared_mem.close()
 loader = ZipMemoryLoader(zip_data)
 sys.meta_path.insert(0, loader)
-
+sys.frozen = True
 globals_ = {'__file__': 'main', '__name__': '__main__'}
 globals_ = globals().update(globals_)
 # 将十六进制字符串转换回字节序列
@@ -311,7 +310,7 @@ pyc_data = bytes.fromhex("%s")
 compiled_code = marshal.loads(pyc_data[16:])
 try:
     exec(compiled_code, globals_)
-except:
+except Exception:
     import ctypes
     import traceback
     e = traceback.format_exc()
@@ -350,20 +349,18 @@ except:
 	if ret != 0 {
 		MessageBox("错误", "执行失败, cmd 运行 run.bat 查看报错信息,\n或设置hide_cmd为False重新编译然后控制台运行")
 	}
+	// 确保 Python 环境被正确清理
+	finalize, _ := pythonDll.FindProc("Py_FinalizeEx")
+	finalize.Call()
+	originDir := os.Getenv("originDir")
+	os.Chdir(originDir)
+	pythonDll.Release()
 
+	kernel32 := windows.NewLazySystemDLL("kernel32.dll")
+	procFreeLibrary := kernel32.NewProc("FreeLibrary")
+	procFreeLibrary.Call(uintptr(pythonDll.Handle))
 	isSubProcess := os.Getenv("isSubProcess")
 	if isSubProcess == "" {
-		// 确保 Python 环境被正确清理
-		finalize, _ := pythonDll.FindProc("Py_FinalizeEx")
-		finalize.Call()
-		originDir := os.Getenv("originDir")
-		os.Chdir(originDir)
-		pythonDll.Release()
-
-		kernel32 := windows.NewLazySystemDLL("kernel32.dll")
-		procFreeLibrary := kernel32.NewProc("FreeLibrary")
-		procFreeLibrary.Call(uintptr(pythonDll.Handle))
-
 		if onefile {
 			// 因无法释放pythonXX.dll,会有残留，所以使用任务计划再次删除临时目录
 			taskName := "DeleteTempDirTask"

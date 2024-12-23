@@ -48,6 +48,7 @@ soeasypack is available on PyPI. You can install it through pip::
 
 - 伪轻量打包是复制当前python主环境除了site-packages文件夹之外的必要官方文件，然后复制用户脚本目录，复制requirements.txt,
 用户启动程序后检查依赖是否缺失，缺失自动pip下载,下载完成后rundep目录生成compiled_pip.txt，用以下次启动判断是否需要下载依赖项，
+建议requirements.txt使用pipreqs包生成
 
 - **2**: 嵌入exe介绍
 - 普通嵌入exe：设置embed_exe=True,会把rundep/AppData文件夹下用户的所有.py文件转换为.pyc，然后嵌入exe中，其它类型和其它文件夹不会嵌入。
@@ -74,6 +75,15 @@ soeasypack is available on PyPI. You can install it through pip::
 - 伪轻量打包会自动将AppData文件夹下全部.py文件转为.pyc，然后嵌入exe
 - 程序图标需要使用png格式
 - 若启动出错无法查看报错信息可设置hide_cmd=False,编译成带控制台的exe，然后在cmd中去启动程序查看报错信息
+- 多进程需要添加冻结指令
+```python
+import sys
+import multiprocessing
+if __name__ == '__main__':
+    # 冻结支持，确保在打包后的环境中正确启动新的Python解释器进程
+    sys.frozen = True
+    multiprocessing.freeze_support()
+```
 
 - **4**: 函数介绍
     - 1.打包项目

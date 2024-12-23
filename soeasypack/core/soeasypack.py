@@ -16,12 +16,18 @@ import fnmatch
 import zipfile
 from functools import partial
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypedDict
 from concurrent.futures import as_completed, ThreadPoolExecutor
 
 from .my_logger import my_logger
 from .py_to_pyd import to_pyd
 from .slimfile import to_slim_file, check_dependency_files
+
+
+class KwargsType(TypedDict, total=False):
+    file_version: str
+    product_name: str
+    company: str
 
 
 def copy_file(src, dest):
@@ -204,7 +210,10 @@ def copy_py_script(main_py_path, save_dir):
     return new_main_py_path
 
 
-def create_bat(save_dir):
+def create_bat(save_dir, embed_exe):
+
+    py_suffix = 'pyc' if embed_exe else 'py'
+
     # 生成bat脚本
     bat_file_content = fr'''
 @echo off
@@ -213,7 +222,7 @@ set "rundep_dir=%current_dir%\rundep"
 set "python_path=%rundep_dir%\python.exe"
 
 cd /d "%rundep_dir%\AppData"
-start /B "" %python_path% main.pyc"
+start /B "" %python_path% main.{py_suffix}"
 '''
     bat_path = Path.joinpath(Path(save_dir), 'run.bat')
     with open(bat_path, 'w', encoding='utf-8') as bat_file:
@@ -394,8 +403,8 @@ def to_pack(main_py_path: str, save_dir: str = None,
             auto_py_pyc: bool = True, pyc_optimize: Literal[-1, 0, 1, 2] = 1,
             auto_py_pyd: bool = False, embed_exe: bool = False, onefile: bool = False,
             monitoring_time: int = 18, uac: bool = False, requirements_path: str = None,
-            except_packages: [str] = None, winres_json_path : str = None, delay_time: int = 3,
-            **kwargs) -> None:
+            except_packages: [str] = None, winres_json_path: str = None, delay_time: int = 3,
+            **kwargs: KwargsType) -> None:
     """
     :param main_py_path:主入口py文件路径
     :param save_dir:打包保存目录(默认为桌面目录)
@@ -422,7 +431,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
     :param except_packages: 排除的第三方包名称
     :param winres_json_path: exe应用信息文件路径
     :param delay_time: 启动监控工具后延时几秒启动用户程序
-    :param kwargs:
+    :param kwargs: file_version: str, product_name: str, company: str
     :return:
     """
 
@@ -496,7 +505,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
     if auto_py_pyc or embed_exe or onefile:
         py_to_pyc(rundep_dir, pyc_optimize)
     if not (embed_exe or onefile):
-        create_bat(save_dir)
+        create_bat(save_dir, embed_exe)
     build_exe(save_dir, hide_cmd, exe_name, png_path, embed_exe=embed_exe, onefile=onefile,
               uac=uac, pack_mode=pack_mode, winres_json_path=winres_json_path, **kwargs)
 
