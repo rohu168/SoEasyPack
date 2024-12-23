@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"unsafe"
 	"windows"
@@ -89,60 +90,72 @@ func createSharedMemory() (windows.Handle, uintptr) {
 	return handle, addr
 }
 
-func extractFile(f *zip.File, dest string, wg *sync.WaitGroup, buffer []byte) {
-	defer wg.Done()
+var bufferPool = sync.Pool{
+	New: func() interface{} {
+		return make([]byte, 32*1024) // 默认缓冲区大小 32KB
+	},
+}
 
-	// 构建文件应该写入的路径
+func processFile(f *zip.File, dest string) error {
 	fpath := filepath.Join(dest, f.Name)
-
-	// 检查文件是否需要解压
 	if f.FileInfo().IsDir() {
-		os.MkdirAll(fpath, os.ModePerm)
-		return
+		return os.MkdirAll(fpath, os.ModePerm)
 	}
-
-	// 创建文件所在的目录
 	if err := os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
-		panic(err)
+		return err
 	}
 
-	// 创建文件
 	outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer outFile.Close()
 
 	rc, err := f.Open()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer rc.Close()
 
-	// 复制文件内容，使用预分配的缓冲区
-	if _, err = io.CopyBuffer(outFile, rc, buffer); err != nil {
-		panic(err)
-	}
+	buffer := bufferPool.Get().([]byte)
+	defer bufferPool.Put(buffer)
+
+	_, err = io.CopyBuffer(outFile, rc, buffer)
+	return err
 }
 
-// 解压zip文件到指定目录
 func extractZip(zipReader io.ReaderAt, size int64, dest string) error {
 	zipR, err := zip.NewReader(zipReader, size)
 	if err != nil {
 		return err
 	}
 
+	maxConcurrency := runtime.NumCPU()
+	sem := make(chan struct{}, maxConcurrency)
+
 	var wg sync.WaitGroup
-	// 预分配一个较大缓冲区用于io.CopyBuffer
-	buffer := make([]byte, 32*1024) // 32KB
+	var mu sync.Mutex
+	var firstErr error
 
 	for _, f := range zipR.File {
 		wg.Add(1)
-		go extractFile(f, dest, &wg, buffer)
+		sem <- struct{}{} // 控制并发
+		go func(file *zip.File) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			if err := processFile(file, dest); err != nil {
+				mu.Lock()
+				if firstErr == nil {
+					firstErr = err
+				}
+				mu.Unlock()
+			}
+		}(f)
 	}
 
 	wg.Wait()
-	return nil
+	return firstErr
 }
 
 type stderrCapturer struct {
