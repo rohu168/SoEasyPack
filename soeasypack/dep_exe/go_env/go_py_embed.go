@@ -16,7 +16,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"time"
 	"unsafe"
 	"windows"
 )
@@ -38,7 +37,7 @@ func MessageBox(title, message string) {
 
 	messagePtr, _ := windows.UTF16PtrFromString(message)
 
-	proc.Call(0, uintptr(unsafe.Pointer(messagePtr)), uintptr(unsafe.Pointer(titlePtr)), 0)
+	proc.Call(0, uintptr(unsafe.Pointer(messagePtr)), uintptr(unsafe.Pointer(titlePtr)), 0x10)
 }
 
 func fileExists(filename string) bool {
@@ -153,13 +152,11 @@ func main() {
 			if err != nil {
 				return
 			}
-			defer os.RemoveAll(currentDir) // 程序退出时删除临时目录
-
 			// 读取嵌入的zip文件内容
 			zipData, err := embedZip.ReadFile("rundep.zip")
 			if err != nil {
 				MessageBox("错误", "读取压缩包数据失败: "+err.Error())
-				os.Exit(1)
+				return
 			}
 
 			// 使用bytes.Reader包装zip数据，以提供io.ReaderAt接口
@@ -168,21 +165,33 @@ func main() {
 			// 解压zip文件到临时目录
 			if err := extractZip(zipReader, int64(len(zipData)), rundepDir); err != nil {
 				MessageBox("错误", "解压数据到临时目录失败: "+err.Error())
-				os.Exit(1)
+				return
 			}
 			SEPHOME = currentDir
 			os.Setenv("SEPHOME", currentDir)
 			os.Setenv("PYTHONHOME", SEPHOME+"\\rundep")
+			// os.Setenv("ONEFILE", "1")
 			pyDllPath = SEPHOME + "\\rundep\\python3.dll"
-			os.Chdir(SEPHOME + "\\rundep\\AppData")
-
+			os.Setenv("pyDllPath", pyDllPath)
+			handle, addr := createSharedMemory()
+			defer windows.CloseHandle(handle)
+			defer windows.UnmapViewOfFile(addr)
+			executable, _ := os.Executable()
+			cmd := exec.Command(executable)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				MessageBox("错误", "启动失败: "+err.Error())
+			}
+			os.RemoveAll(currentDir) // 程序退出时删除临时目录
+			return
 		} else {
 			currentDir, _ := os.Getwd()
 			SEPHOME = currentDir
 			os.Setenv("SEPHOME", currentDir)
 			os.Setenv("PYTHONHOME", SEPHOME+"\\rundep")
 			pyDllPath = SEPHOME + "\\rundep\\python3.dll"
-			os.Chdir(SEPHOME + "\\rundep\\AppData")
+			os.Chdir(SEPHOME + "\\rundep")
 			// 轻量打包模式
 			if packmode == 2 {
 				isExist := fileExists("compiled_pip.txt")
@@ -214,12 +223,11 @@ func main() {
 				}
 
 			}
+			os.Setenv("pyDllPath", pyDllPath)
+			handle, addr := createSharedMemory()
+			defer windows.CloseHandle(handle)
+			defer windows.UnmapViewOfFile(addr)
 		}
-
-		os.Setenv("pyDllPath", pyDllPath)
-		handle, addr := createSharedMemory()
-		defer windows.CloseHandle(handle)
-		defer windows.UnmapViewOfFile(addr)
 
 	} else {
 		pyDllPath = os.Getenv("pyDllPath")
@@ -316,7 +324,8 @@ except Exception:
     e = traceback.format_exc()
     ctypes.windll.user32.MessageBoxW(0, e, "错误", 0x10)
 `, mainPyCode)
-
+	// 切换工作目录
+	os.Chdir(SEPHOME + "\\rundep\\AppData")
 	// 加载 pythonxx.dll
 	pythonDll, err := windows.LoadDLL(pyDllPath)
 	if err != nil {
@@ -359,32 +368,4 @@ except Exception:
 	kernel32 := windows.NewLazySystemDLL("kernel32.dll")
 	procFreeLibrary := kernel32.NewProc("FreeLibrary")
 	procFreeLibrary.Call(uintptr(pythonDll.Handle))
-	isSubProcess := os.Getenv("isSubProcess")
-	if isSubProcess == "" {
-		if onefile {
-			// 因无法释放pythonXX.dll,会有残留，所以使用任务计划再次删除临时目录
-			taskName := "DeleteTempDirTask"
-			// command := fmt.Sprintf(`cmd /b /c rd /s /q "%s"`, currentDir) // 删除目录的命令
-			command := fmt.Sprintf(`powershell.exe -WindowStyle Hidden -Command Remove-Item -Recurse -Force "%s"`, SEPHOME)
-			runTime := time.Now().Add(1 * time.Minute).Format("15:04:05") // 格式为 HH:mm
-
-			// 创建任务
-			cmd := exec.Command("schtasks", "/Create",
-				"/TN", taskName, // 任务名称
-				"/TR", command, // 执行的命令
-				"/SC", "ONCE", // 一次性任务
-				"/ST", runTime, // 执行时间
-				"/RL", "HIGHEST",
-				"/RU", "SYSTEM",
-				"/F", // 强制覆盖已有任务
-			)
-			// 设置 SysProcAttr 以隐藏命令行窗口
-			cmd.SysProcAttr = &windows.SysProcAttr{
-				CreationFlags: windows.CREATE_NO_WINDOW,
-			}
-			cmd.Run()
-
-		}
-	}
-
 }

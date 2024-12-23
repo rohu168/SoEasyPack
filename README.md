@@ -55,37 +55,7 @@ soeasypack is available on PyPI. You can install it through pip::
 - 单文件exe：设置onefile=True,会把rundep/AppData文件夹下用户的所有.py文件转换为.pyc，然后嵌入exe中，
 然后把rundep文件下所有文件压缩成一个zip压缩包嵌入exe中，exe运行时会解压缩到临时目录，退出程序则删除临时目录.
 其它制作单exe文件方法：使用[Enigma Virtual Box](https://www.enigmaprotector.com/cn/downloads.html)工具打包成只有一个exe  
-
-- **3**: 注意事项
-- 因360安全卫士会拦截procmon相关工具, 所以，打包前请先关闭360安全卫士或放行。
-- 以管理员身份运行打包代码，或在以管理员身份打开的编辑器中运行程序可避免每次启动procmon时弹出用户账户控制确认窗口，
-以管理员身份运行用户程序，拖放文件到窗口功能会失效
-- 单文件exe运行结束后因不能释放所有dll（原因不明），导致不能完全删除临时目录所有文件，会有几兆残留，
-  所以程序结束时会自动创建任务计划程序1分钟后清理创建的临时目录，若一分钟内多次启动多次结束，因任务计划程序被覆盖，
-  则不会删除前几次创建的临时目录残留，单文件exe代码中不可使用sys.exit()，否则无法删除临时目录
-- 默认会将大全部.py文件转为.pyc.不保留原.py文件，优化级别默认使用为1。
-- 会自动将主py文件重命名为main, exe启动时会将工作目录切换至rundep/Appdata,会依次寻找文件夹下mian.pyc,.py,.pyd启动文件
-- 建议在虚拟环境中使用，非虚拟环境可能会打包无用的依赖(非虚拟环境测试项目：未使用numpy,但项目运行时不知为何访问了numpy,导致复制了这个无用的包)
-- 为了能完整记录依赖文件，监控工具启动后，会自动运行你的脚本，请对你的项目进行必要的操作：如点击运行按钮等，
-  如：我使用openpyxl往表格中插入图片，项目自动启动后，我要让脚本执行这一操作，
-  这样，监控工具才能监控到依赖文件，否则最后虽然能启动项目但是插入图片时会报错，
-  所以，请一定要注意，你的项目启动后，一定要默认监控时间18秒内执行必要的操作。
-  18秒大概会产生几百兆的日志，所以，监控时间可以根据实际情况调整。
-- 因.pyc可能会被反编译，建议使用soeasypack的py文件转pyd函数（好像需要先安装Visual Studio, 我自己之前安装的有，其它情况也没试）或使用嵌入exe功能
-- 伪轻量打包会自动将AppData文件夹下全部.py文件转为.pyc，然后嵌入exe
-- 程序图标需要使用png格式
-- 若启动出错无法查看报错信息可设置hide_cmd=False,编译成带控制台的exe，然后在cmd中去启动程序查看报错信息
-- 多进程需要添加冻结指令
-```python
-import sys
-import multiprocessing
-if __name__ == '__main__':
-    # 冻结支持，确保在打包后的环境中正确启动新的Python解释器进程
-    sys.frozen = True
-    multiprocessing.freeze_support()
-```
-
-- **4**: 函数介绍
+- **3**: 函数介绍
     - 1.打包项目
     ```python
     from soeasypack import to_pack
@@ -105,6 +75,33 @@ if __name__ == '__main__':
     from soeasypack import to_pyd
     to_pyd(script_dir: str, script_dir_main_py: str, is_del_py: bool = False)
     ```
+## 注意事项
+- 因360安全卫士会拦截procmon相关工具, 所以，打包前请先关闭360安全卫士或放行。
+- 以管理员身份运行打包代码，或在以管理员身份打开的编辑器中运行程序可避免每次启动procmon时弹出用户账户控制确认窗口，
+以管理员身份运行用户程序，拖放文件到窗口功能会失效
+- 默认会将大全部.py文件转为.pyc.不保留原.py文件，优化级别默认使用为1。
+- 会自动将主py文件重命名为main, exe启动时会将工作目录切换至rundep/Appdata,会依次寻找文件夹下mian.pyc,.py,.pyd启动文件
+- 建议在虚拟环境中使用，非虚拟环境可能会打包无用的依赖(非虚拟环境测试项目：未使用numpy,但项目运行时不知为何访问了numpy,导致复制了这个无用的包)
+- 为了能完整记录依赖文件，监控工具启动后，会自动运行你的脚本，请对你的项目进行必要的操作：如点击运行按钮等，
+  如：我使用openpyxl往表格中插入图片，项目自动启动后，我要让脚本执行这一操作，
+  这样，监控工具才能监控到依赖文件，否则最后虽然能启动项目但是插入图片时会报错，
+  所以，请一定要注意，你的项目启动后，一定要默认监控时间18秒内执行必要的操作。
+  18秒大概会产生几百兆的日志，所以，监控时间可以根据实际情况调整。
+- 因.pyc可能会被反编译，建议使用soeasypack的py文件转pyd函数（好像需要先安装Visual Studio, 我自己之前安装的有，其它情况也没试）或使用嵌入exe功能
+- 伪轻量打包会自动将AppData文件夹下全部.py文件转为.pyc，然后嵌入exe
+- 程序图标需要使用png格式
+- 若启动出错无法查看报错信息可设置hide_cmd=False,编译成带控制台的exe，然后在cmd中去启动程序查看报错信息
+- 多进程需要添加冻结指令
+```python
+import sys
+from multiprocessing import freeze_support
+if __name__ == '__main__':
+    # 冻结支持，确保在打包后的环境中正确启动新的Python解释器进程
+    sys.frozen = True
+    freeze_support()
+```
+
+
 - 如果你觉得对你有帮助的话，可以打赏1元让作者买个馍呀
-![](https://github.com/XMQSVIP/MyImage/blob/main/zhi_wei.png?raw=true)
+![](https://github.com/XMQSVIP/MyImage/blob/main/wx_zsm.jpg?raw=true)
 

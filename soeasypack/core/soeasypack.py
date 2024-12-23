@@ -262,7 +262,6 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
     dest_go_py_path = Path.joinpath(temp_build_dir, 'go_py.go')
     if onefile:
         embed_exe = True
-        uac = True
 
     if embed_exe:
         go_py_path = Path.joinpath(current_dir, 'dep_exe/go_env/go_py_embed.go')
@@ -453,7 +452,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
     os.makedirs(save_dir, exist_ok=True)
     if onefile:
         embed_exe = True
-        uac = True
+
     if pack_mode == 2:
         embed_exe = True
         onefile = False
