@@ -7,14 +7,14 @@
 - 原理：使用微软[procmon](https://learn.microsoft.com/en-us/sysinternals/downloads/procmon "procmon")进程监控工具（已内置），监控项目运行时访问的文件记录
 - 仅支持windows，且仅在windows10和11上测试过
 ## 虚拟环境打包大小对比
-| 打包工具                     | 打包后大小 |
-|--------------------------|-------|
-| 使用nuitka打包               | 67.9M |
-| 使用PyStand仅删除pip文件夹       | 56.9M |
-| 使用Pyinstaller打包后模块缺失 补模块 | 49.3M |
-| 使用soeasypack的快速模式打包      | 33.5M |
-| 使用soeasypack的普通模式打包      | 33.5M |
-| 使用soeasypack的单exe模式打包    | 16.3M |
+| 打包工具              | 打包后大小 |
+|-------------------|-------|
+| nuitka打包          | 67.9M |
+| PyStand仅删除pip文件夹  | 56.9M |
+| Pyinstaller打包后模块缺失 补模块 | 49.3M |
+| soeasypack的快速模式打包 | 33.5M |
+| soeasypack的普通模式打包 | 33.5M |
+| soeasypack的单exe模式打包 | 16.3M |
 
 | 使用soeasypack的to_slim_file瘦身  | 原体积大小      | 瘦身后大小    | 瘦身比例  |
 |---------------------------------|------------|------------|-------|
@@ -52,7 +52,7 @@ soeasypack is available on PyPI. You can install it through pip::
 
 - **2**: 嵌入exe介绍
 - 普通嵌入exe：设置embed_exe=True,会把rundep/AppData文件夹下用户的所有.py文件转换为.pyc，然后嵌入exe中，其它类型和其它文件夹不会嵌入。
-- 单文件exe：设置onefile=True,会把rundep/AppData文件夹下用户的所有.py文件转换为.pyc，然后嵌入exe中，
+- 单exe文件：设置onefile=True,会把rundep/AppData文件夹下用户的所有.py文件转换为.pyc，然后嵌入exe中，
 然后把rundep文件下所有文件压缩成一个zip压缩包嵌入exe中，exe运行时会解压缩到临时目录，退出程序则删除临时目录.
 其它制作单exe文件方法：使用[Enigma Virtual Box](https://www.enigmaprotector.com/cn/downloads.html)工具打包成只有一个exe  
 - **3**: 函数介绍
