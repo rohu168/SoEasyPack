@@ -264,6 +264,7 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
         embed_exe = True
 
     if embed_exe:
+        ready_remove_pyc = []
         go_py_path = Path.joinpath(current_dir, 'dep_exe/go_env/go_py_embed.go')
         main_py_path = Path.joinpath(Path(save_dir), 'rundep/AppData/main.pyc')
         with open(main_py_path, mode='rb') as fp:
@@ -309,8 +310,11 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
                 for file in files:
                     if file.endswith('.pyc'):
                         full_path = os.path.join(root, file)
+                        ready_remove_pyc.append(full_path)
                         archive_name = os.path.relpath(full_path, start=app_data_dir)
                         zipf.write(full_path, arcname=archive_name)
+        for i in ready_remove_pyc:
+            os.remove(i)
     else:
         go_py_path = Path.joinpath(current_dir, 'dep_exe/go_env/go_py.go')
         shutil.copyfile(go_py_path, dest_go_py_path)
@@ -505,6 +509,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
         py_to_pyc(rundep_dir, pyc_optimize)
     if not (embed_exe or onefile):
         create_bat(save_dir, embed_exe)
+
     build_exe(save_dir, hide_cmd, exe_name, png_path, embed_exe=embed_exe, onefile=onefile,
               uac=uac, pack_mode=pack_mode, winres_json_path=winres_json_path, **kwargs)
 
