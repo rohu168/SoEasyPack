@@ -31,7 +31,7 @@ soeasypack is available on PyPI. You can install it through pip::
     pip install soeasypack
 ```
 ## 操作演示
-   [点击查看操作演示](https://www.bilibili.com/video/BV1Pfz4YdEAZ/ "操作演示") 
+   [点击查看操作演示](https://b23.tv/2UH6YO3 "操作演示") 
 ## 介绍
 
 - **1**: 模式介绍
