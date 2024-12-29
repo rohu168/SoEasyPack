@@ -233,7 +233,8 @@ func main() {
 						MessageBox("提示", "自动下载依赖包失败:"+err.Error())
 						os.Exit(1)
 					} else {
-						cmd := exec.Command("cmd", "/c", "python.exe -m pip install -r AppData\\requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple")
+					    cmd := exec.Command("cmd", "/c", "python.exe -m pip install -U pip -i https://pypi.tuna.tsinghua.edu.cn/simple")
+						cmd = exec.Command("cmd", "/c", "python.exe -m pip install -r AppData\\requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple")
 						cmd.Stdout = os.Stdout
 						cmd.Stderr = os.Stderr
 
