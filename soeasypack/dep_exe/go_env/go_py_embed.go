@@ -341,6 +341,7 @@ shared_mem = shm.SharedMemory(name="MySharedMemory")
 zip_data = shared_mem.buf.tobytes()
 
 shared_mem.close()
+del shared_mem
 loader = ZipMemoryLoader(zip_data)
 sys.meta_path.insert(0, loader)
 sys.frozen = True
@@ -354,6 +355,9 @@ for i in remove_path:
     sys.path.remove(i)
 try:
     exec(compiled_code, globals_)
+    import inspect
+    for name, model in sys.modules.items():
+        print(name, model)
 except Exception:
     import ctypes
     import traceback
