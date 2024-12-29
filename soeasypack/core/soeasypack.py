@@ -332,11 +332,10 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
                     if file.endswith('.pyc'):
                         full_path = os.path.join(root, file)
                         archive_name = os.path.relpath(full_path, start=app_data_dir)
-                        if all_pyc_zip and 'site-packages' not in root:
-                            continue
-                        archive_name = archive_name.replace('Lib\\site-packages\\', '').replace('AppData\\', '')
-                        zip_fp.write(full_path, arcname=archive_name)
-                        ready_remove_pyc.append(full_path)
+                        if 'AppData' in root or (all_pyc_zip and 'site-packages' in root):
+                            archive_name = archive_name.replace('Lib\\site-packages\\', '').replace('AppData\\', '')
+                            zip_fp.write(full_path, arcname=archive_name)
+                            ready_remove_pyc.append(full_path)
 
         for i in ready_remove_pyc:
             if os.path.exists(i):
@@ -395,7 +394,7 @@ go 1.23
     build_process = subprocess.Popen(command)
     build_process.wait()
     os.chdir(save_dir)
-    shutil.rmtree(temp_build_dir)
+    # shutil.rmtree(temp_build_dir)
     # 移除空文件夹
     for root, dirs, files in os.walk(rundep_dir, topdown=False):
         for name in dirs:
