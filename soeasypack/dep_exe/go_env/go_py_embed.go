@@ -262,6 +262,7 @@ func main() {
 	}
 
 	pyCode := fmt.Sprintf(`
+import os
 import sys
 import marshal
 import zipfile
@@ -269,37 +270,42 @@ import importlib.abc
 import importlib.util
 from io import BytesIO, BufferedReader
 from multiprocessing import shared_memory as shm
-
+from importlib.machinery import ExtensionFileLoader, EXTENSION_SUFFIXES, FileFinder
 
 class ZipMemoryLoader(importlib.abc.MetaPathFinder, importlib.abc.Loader):
     def __init__(self, zip_data):
         self.zip_data = zip_data
         self.zip_file = zipfile.ZipFile(BytesIO(zip_data), 'r')
-        self.zip_file_namelist = self.zip_file.namelist()
+        self.module_cache = {}  # 缓存模块路径到模块名的映射
+        self.rundep_dir = os.path.dirname(os.getcwd())
+        # 构建模块路径缓存
+        for path in self.zip_file.namelist():
+            # 将路径转换为模块名
+            module_name = path[:-4].replace('/', '.').replace('\\', '.')
+            if module_name.endswith('.__init__'):
+                module_name = module_name[:-9]  # 去掉包的 .__init__
+            self.module_cache[module_name] = path
 
     def find_spec(self, fullname, path, target=None):
         """
-        查找模块的规格。支持单模块和嵌套包。
+        查找模块规格，支持加载单模块和嵌套包。
         """
-        parts = fullname.split('.')
-        package_path = '/'.join(parts)
 
-        # 可能的路径：模块或包的字节码文件
-        possible_paths = [
-            f"{package_path}.pyc",
-            f"{package_path}/__init__.pyc"
-        ]
+        origin = self.module_cache.get(fullname)
+        if origin:
+            is_package = origin.endswith('/__init__.pyc')
+            spec = importlib.util.spec_from_loader(fullname, self, origin=origin)
+            if is_package:
+                spec.submodule_search_locations = [origin[:-13]]  # 去掉 /__init__.pyc
+            return spec
 
-        # 判断是否为包
-        is_package = any(p.endswith('/__init__.pyc') for p in possible_paths)
-
-        # 查找模块的路径是否存在于 ZIP 文件中
-        for path in possible_paths:
-            if path in self.zip_file_namelist:
-                spec = importlib.util.spec_from_loader(fullname, self, origin=path)
-                if is_package:
-                    # 如果是包，设置子模块搜索路径
-                    spec.submodule_search_locations = [package_path + '/']
+        loader_details = (ExtensionFileLoader, EXTENSION_SUFFIXES)
+        search_paths = [f"{self.rundep_dir}/Lib/site-packages/", f"{self.rundep_dir}/AppData/"]
+        for search_path in search_paths:
+            base_pkg_name = fullname.rsplit('.', 1)[0].replace('.', '/')
+            file_finder = FileFinder(search_path + base_pkg_name, loader_details)
+            spec = file_finder.find_spec(fullname)
+            if spec and spec.loader:
                 return spec
 
         return None
@@ -308,7 +314,7 @@ class ZipMemoryLoader(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         """
         使用默认行为创建模块。
         """
-        return None  # 返回 None，表示使用默认模块创建逻辑
+        return None
 
     def exec_module(self, module):
         """
@@ -316,20 +322,20 @@ class ZipMemoryLoader(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         """
         spec = module.__spec__
         origin = spec.origin
-        if origin:
+        if origin and origin in self.zip_file.namelist():
             with self.zip_file.open(origin) as source_file:
-                # 跳过 pyc 文件头部
-                source_file.seek(16)
-                code = marshal.load(BufferedReader(source_file))
-
+                # 跳过 pyc 文件头部并加载字节码
+                source_file.read(16)  # 跳过 16 字节头部
+                code = marshal.load(source_file)
                 # 如果是包，设置 __package__ 和 __path__
-                module.__package__ = spec.name if spec.submodule_search_locations else spec.parent
                 if spec.submodule_search_locations:
+                    module.__package__ = spec.name
                     module.__path__ = spec.submodule_search_locations
+                else:
+                    module.__package__ = spec.parent
 
                 # 执行模块代码
                 exec(code, module.__dict__)
-
 
 shared_mem = shm.SharedMemory(name="MySharedMemory")
 zip_data = shared_mem.buf.tobytes()
@@ -339,16 +345,20 @@ loader = ZipMemoryLoader(zip_data)
 sys.meta_path.insert(0, loader)
 sys.frozen = True
 globals_ = {'__file__': 'main', '__name__': '__main__'}
-globals_ = globals().update(globals_)
+#globals_ = globals().update(globals_)
 # 将十六进制字符串转换回字节序列
 pyc_data = bytes.fromhex("%s")
 compiled_code = marshal.loads(pyc_data[16:])
+remove_path = [i for i in sys.path if 'rundep' not in i]
+for i in remove_path:
+    sys.path.remove(i)
 try:
     exec(compiled_code, globals_)
 except Exception:
     import ctypes
     import traceback
     e = traceback.format_exc()
+    print(e)
     ctypes.windll.user32.MessageBoxW(0, e, "错误", 0x10)
 `, mainPyCode)
 	// 切换工作目录

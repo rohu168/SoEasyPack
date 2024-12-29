@@ -211,7 +211,6 @@ def copy_py_script(main_py_path, save_dir):
 
 
 def create_bat(save_dir, embed_exe):
-
     py_suffix = 'pyc' if embed_exe else 'py'
 
     # 生成bat脚本
@@ -233,6 +232,7 @@ start /B "" %python_path% main.{py_suffix}"
 def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path: str = None,
               embed_exe: bool = False, onefile: bool = False, pack_mode=0, winres_json_path: str = None,
               file_version: str = None, product_name: str = None, company: str = None, uac: bool = False,
+              all_pyc_zip: bool = False
               ):
     """
     使用go语言编译
@@ -248,6 +248,7 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
     :param product_name:
     :param company:
     :param uac:
+    :param all_pyc_zip:
     :return:
     """
 
@@ -260,6 +261,7 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
     os.makedirs(temp_build_dir, exist_ok=True)
     save_winres_json = Path.joinpath(temp_build_dir, "winres.json")
     dest_go_py_path = Path.joinpath(temp_build_dir, 'go_py.go')
+    rundep_dir = Path.joinpath(Path(save_dir), 'rundep')
     if onefile:
         embed_exe = True
 
@@ -275,7 +277,6 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
         sm_name = ''.join([random.choices(letters)[0] for _ in range(8)])
         if onefile:
             all_zip_path = Path.joinpath(temp_build_dir, 'rundep.zip')
-            rundep_dir = Path.joinpath(Path(save_dir), 'rundep')
             with zipfile.ZipFile(all_zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zipf:
                 for root, dirs, files in os.walk(rundep_dir):
                     for file in files:
@@ -304,17 +305,42 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
             fp.truncate()
         # # 生成zip归档
         zip_path = Path.joinpath(temp_build_dir, 'soeasypack.zip')
-        app_data_dir = Path.joinpath(Path(save_dir), 'rundep/AppData')
-        with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zipf:
+        app_data_dir = Path.joinpath(Path(save_dir), 'rundep')
+        if all_pyc_zip:
+            python_zip_path = Path.joinpath(Path(save_dir), 'rundep/python38.zip')
+            lib_dir = Path.joinpath(Path(save_dir), 'rundep/Lib')
+            with zipfile.ZipFile(python_zip_path, 'w') as zip_fp:
+                for root, dirs, files in os.walk(lib_dir):
+                    for file in files:
+                        if file.endswith('.pyc') and 'site-packages' not in root:
+                            full_path = os.path.join(root, file)
+                            archive_name = os.path.relpath(full_path, start=lib_dir)
+                            zip_fp.write(full_path, arcname=archive_name)
+                            ready_remove_pyc.append(full_path)
+
+        with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zip_fp:
+            nn = 0
             for root, dirs, files in os.walk(app_data_dir):
+                if nn == 0:
+                    if all_pyc_zip:
+                        dirs[:] = ['AppData', 'Lib']
+                    else:
+                        dirs[:] = ['AppData']
+                    nn = 1
+
                 for file in files:
                     if file.endswith('.pyc'):
                         full_path = os.path.join(root, file)
-                        ready_remove_pyc.append(full_path)
                         archive_name = os.path.relpath(full_path, start=app_data_dir)
-                        zipf.write(full_path, arcname=archive_name)
+                        if all_pyc_zip and 'site-packages' not in root:
+                            continue
+                        archive_name = archive_name.replace('Lib\\site-packages\\', '').replace('AppData\\', '')
+                        zip_fp.write(full_path, arcname=archive_name)
+                        ready_remove_pyc.append(full_path)
+
         for i in ready_remove_pyc:
-            os.remove(i)
+            if os.path.exists(i):
+                os.remove(i)
     else:
         go_py_path = Path.joinpath(current_dir, 'dep_exe/go_env/go_py.go')
         shutil.copyfile(go_py_path, dest_go_py_path)
@@ -370,6 +396,15 @@ go 1.23
     build_process.wait()
     os.chdir(save_dir)
     shutil.rmtree(temp_build_dir)
+    # 移除空文件夹
+    for root, dirs, files in os.walk(rundep_dir, topdown=False):
+        for name in dirs:
+            full_path = os.path.join(root, name)
+            if not os.listdir(str(full_path)):
+                try:
+                    os.rmdir(full_path)
+                except Exception:
+                    pass
 
 
 def py_to_pyc(dest_dir, optimize):
@@ -407,6 +442,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
             auto_py_pyd: bool = False, embed_exe: bool = False, onefile: bool = False,
             monitoring_time: int = 18, uac: bool = False, requirements_path: str = None,
             except_packages: [str] = None, winres_json_path: str = None, delay_time: int = 3,
+            all_pyc_zip: bool = False,
             **kwargs: KwargsType) -> None:
     """
     :param main_py_path:主入口py文件路径
@@ -434,6 +470,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
     :param except_packages: 排除的第三方包名称
     :param winres_json_path: exe应用信息文件路径
     :param delay_time: 启动监控工具后延时几秒启动用户程序
+    :param all_pyc_zip: 把所有.pyc文件压缩进zip
     :param kwargs: file_version: str, product_name: str, company: str
     :return:
     """
@@ -511,6 +548,6 @@ def to_pack(main_py_path: str, save_dir: str = None,
         create_bat(save_dir, embed_exe)
 
     build_exe(save_dir, hide_cmd, exe_name, png_path, embed_exe=embed_exe, onefile=onefile,
-              uac=uac, pack_mode=pack_mode, winres_json_path=winres_json_path, **kwargs)
+              uac=uac, pack_mode=pack_mode, winres_json_path=winres_json_path, all_pyc_zip=all_pyc_zip, **kwargs)
 
     my_logger.info('结束')
