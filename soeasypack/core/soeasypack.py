@@ -307,7 +307,7 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
         zip_path = Path.joinpath(temp_build_dir, 'soeasypack.zip')
         app_data_dir = Path.joinpath(Path(save_dir), 'rundep')
         if all_pyc_zip:
-            python_zip_path = Path.joinpath(Path(save_dir), 'rundep/python38.zip')
+            python_zip_path = Path.joinpath(Path(save_dir), f'rundep/python{py_version}.zip')
             lib_dir = Path.joinpath(Path(save_dir), 'rundep/Lib')
             with zipfile.ZipFile(python_zip_path, 'w') as zip_fp:
                 for root, dirs, files in os.walk(lib_dir):
@@ -417,7 +417,7 @@ def py_to_pyc(dest_dir, optimize):
             ready_remove_dirs.append(root)
             continue
         for file in files:
-            if ('config' in file) or ('WmDefault' in file):
+            if 'site-pack' in root and (('config' in file) or ('WmDefault' in file)):
                 # # cv2会读取config.py文件, 跳过tcl的WmDefault(缩进有问题)
                 continue
             if file.endswith('.py'):
