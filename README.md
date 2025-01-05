@@ -1,20 +1,24 @@
+.. image:: https://img.shields.io/pypi/v/soeasypack
+   :alt: PyPI
+   :target: https://pypi.org/project/soeasypack
 [![PyPI Downloads](https://static.pepy.tech/badge/soeasypack)](https://pepy.tech/projects/soeasypack)
 # SoEasyPack
 - 此项目受[PyStand](https://github.com/skywind3000/PyStand "PyStand")和[PythonSizeCruncher](https://github.com/mengdeer589/PythonSizeCruncher "PythonSizeCruncher")启发。
 - 不需要复制嵌入式包，也不必再二次瘦身,一次打包理论上就是最小依赖文件数
 - 用简易的方式复制你的python项目并自动精准匹配环境依赖，几乎没有什么多余文件，
   并且可以生成一个exe启动器启动项目。（用go语言编译,已内置简化过的go环境）
-- 原理：使用微软[procmon](https://learn.microsoft.com/en-us/sysinternals/downloads/procmon "procmon")进程监控工具（已内置），监控项目运行时访问的文件记录
+- 快速/普通模式原理：使用微软[procmon](https://learn.microsoft.com/en-us/sysinternals/downloads/procmon "procmon")进程监控工具（已内置），监控项目运行时访问的文件记录
 - 仅支持windows，且仅在windows10和11上测试过
 ## 虚拟环境打包大小对比
-| 打包工具              | 打包后大小 |
-|-------------------|-------|
-| nuitka打包          | 67.9M |
-| PyStand仅删除pip文件夹  | 56.9M |
+| 打包工具                   | 打包后大小 |
+|------------------------|-------|
+| nuitka打包               | 67.9M |
+| PyStand仅删除pip文件夹       | 56.9M |
 | Pyinstaller打包后模块缺失 补模块 | 49.3M |
-| soeasypack的快速模式打包 | 33.5M |
-| soeasypack的普通模式打包 | 33.5M |
-| soeasypack的单exe模式打包 | 16.3M |
+| soeasypack的ast模式打包     | 45.2M |
+| soeasypack的快速模式打包      | 33.5M |
+| soeasypack的普通模式打包      | 33.5M |
+| soeasypack的单exe模式打包    | 16.3M |
 
 | 使用soeasypack的to_slim_file瘦身  | 原体积大小      | 瘦身后大小    | 瘦身比例  |
 |---------------------------------|------------|------------|-------|
@@ -35,8 +39,8 @@ soeasypack is available on PyPI. You can install it through pip::
 ## 介绍
 
 - **1**: 模式介绍
-- 项目有三种打包模式：【普通打包】和【快速打包】以及【伪轻量打包】（默认使用快速打包）.
-- pack_mode：0/快速打包模式 ，1/普通打包模式， 2/伪轻量打包模式
+- 项目有四种打包模式：【普通打包】【快速打包】【伪轻量打包】【ast模式打包】（默认使用快速打包）.
+- pack_mode：0/快速打包模式 ，1/普通打包模式， 2/伪轻量打包模式， 3/ast模式打包
 
 - 普通打包会先复制当前python主环境的必要官方文件，然后复制当前py环境的整个site-packages
 文件夹到你指定的保存目录，然后启动分析工具分析依赖文件，然后根据依赖文件去删除rundep文件夹
