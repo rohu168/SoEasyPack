@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Literal, TypedDict
 from concurrent.futures import as_completed, ThreadPoolExecutor
 
+from .ast_find_depend import analyze_depends
 from .my_logger import my_logger
 from .py_to_pyd import to_pyd
 from .slimfile import to_slim_file, check_dependency_files
@@ -80,11 +81,12 @@ def copy_py_env(save_dir, main_run_path=None, pack_mode=0, monitoring_time=18, e
         is_go = input(f"当前你的环境：非虚拟环境，{current_env_dir}, 可能会打包无用的依赖文件！若继续操作，请输入Y或y：")
         if is_go.lower() != 'y':
             sys.exit()
-
-    if pack_mode == 0:
-        my_logger.info("当前模式：快速模式")
+    mode_info = ("快速模式", "普通模式", "轻量模式", "ast模式")
+    my_logger.info(f"当前模式：{mode_info[pack_mode]}")
+    if pack_mode in (0, 3):
         dependency_files = check_dependency_files(main_run_path, save_dir, pack_mode=pack_mode,
                                                   monitoring_time=monitoring_time, except_packages=except_packages)
+
         rundep_dir = Path.joinpath(Path(save_dir), 'rundep').resolve()
         my_logger.info("复制python环境...")
         with ThreadPoolExecutor() as executor:
@@ -110,11 +112,7 @@ def copy_py_env(save_dir, main_run_path=None, pack_mode=0, monitoring_time=18, e
                     future.result()  # 获取结果，捕获任务中的异常
                 except Exception as e:
                     my_logger.error(f"复制线程出错: {e}")
-    else:
-        if pack_mode == 1:
-            my_logger.info("当前模式：普通模式")
-        else:
-            my_logger.info("当前模式：轻量模式")
+    elif pack_mode in (1, 2):
         my_logger.info("复制python环境...")
         dest = Path.joinpath(Path(save_dir), 'rundep')
 
@@ -273,8 +271,6 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
             main_py_code = fp.read()
             main_py_code_hex = main_py_code.hex()
         os.remove(main_py_path)
-        letters = string.ascii_letters + string.digits
-        sm_name = ''.join([random.choices(letters)[0] for _ in range(8)])
         if onefile:
             all_zip_path = Path.joinpath(temp_build_dir, 'rundep.zip')
             with zipfile.ZipFile(all_zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zipf:
@@ -293,8 +289,7 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
             fp.seek(0)
             py_version = sys.version.replace('.', '', 1).split('.', 1)[0]
             edited_go_code = (go_code.replace('python3.dll', f'python{py_version}.dll').
-                              replace('main_pycode', main_py_code_hex).
-                              replace('MySharedMemory', sm_name))
+                              replace('main_pycode', main_py_code_hex))
             if onefile:
                 edited_go_code = (edited_go_code.replace('embed soeasypack.zip',
                                                          'embed soeasypack.zip rundep.zip', 1).
@@ -394,7 +389,7 @@ go 1.23
     build_process = subprocess.Popen(command)
     build_process.wait()
     os.chdir(save_dir)
-    # shutil.rmtree(temp_build_dir)
+    shutil.rmtree(temp_build_dir)
     # 移除空文件夹
     for root, dirs, files in os.walk(rundep_dir, topdown=False):
         for name in dirs:
@@ -436,7 +431,7 @@ def py_to_pyc(dest_dir, optimize):
 
 def to_pack(main_py_path: str, save_dir: str = None,
             exe_name: str = 'main', png_path: str = None, hide_cmd: bool = True,
-            pack_mode: Literal[0, 1, 2] = 0, force_copy_env: bool = False,
+            pack_mode: Literal[0, 1, 2, 3] = 0, force_copy_env: bool = False,
             auto_py_pyc: bool = True, pyc_optimize: Literal[-1, 0, 1, 2] = 1,
             auto_py_pyd: bool = False, embed_exe: bool = False, onefile: bool = False,
             monitoring_time: int = 18, uac: bool = False, requirements_path: str = None,
@@ -453,6 +448,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
     1/普通模式：先复制python环境依赖包，然后监控分析依赖文件，再进行项目瘦身,会保存被移除的文件，
     因为会复制整个site-packages文件夹，所以不建议在非虚拟环境使用，
     2/轻量模式，不复制site-packages文件夹，第一次启动程序自动pip下载依赖包
+    3/ast模式
     :param force_copy_env: 强行每次复制python环境依赖包
     :param auto_py_pyc：知否把所有py转为pyc
     :param pyc_optimize: pyc优化级别，
@@ -478,8 +474,8 @@ def to_pack(main_py_path: str, save_dir: str = None,
         my_logger.error('save_dir不能是main_py_path所在目录')
         return
 
-    if pack_mode not in (0, 1, 2):
-        my_logger.error('pack_mode参数值只限于0, 1, 2')
+    if pack_mode not in (0, 1, 2, 3):
+        my_logger.error('pack_mode参数值只限于0, 1, 2, 3')
         return
 
     if not os.path.exists(main_py_path):
@@ -541,8 +537,10 @@ def to_pack(main_py_path: str, save_dir: str = None,
             to_pyd(script_dir, script_dir_main_py=script_dir_main_py, is_del_py=True)
         except Exception as e:
             my_logger.error(f"转pyd出错：{e}")
+
     if auto_py_pyc or embed_exe or onefile:
         py_to_pyc(rundep_dir, pyc_optimize)
+
     if not (embed_exe or onefile):
         create_bat(save_dir, embed_exe)
 

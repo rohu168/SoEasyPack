@@ -13,6 +13,7 @@ import ctypes
 import subprocess
 from pathlib import Path
 
+from .ast_find_depend import analyze_depends
 from .my_logger import my_logger
 
 
@@ -41,6 +42,13 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
     if dependency_file_csv.exists():
         my_logger.info('已存在依赖文件清单表，跳过依赖文件检查')
         dependency_files = get_dependency_list(dependency_file_csv, pack_mode=pack_mode)
+        return dependency_files
+    if pack_mode == 3:
+        dependency_files = analyze_depends(main_run_path, except_pkgs=except_packages)
+        with open(dependency_file_csv, mode='w', newline='', encoding='utf-8') as fp:
+            csv_writer = csv.writer(fp)
+            for i in dependency_files:
+                csv_writer.writerow([i])
         return dependency_files
 
     my_logger.info('当你的项目稍后自动运行后，请进行一些必要的功能操作：如点击运行按钮等,否则可能会造成依赖缺失')

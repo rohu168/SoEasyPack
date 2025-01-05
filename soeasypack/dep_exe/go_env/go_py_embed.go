@@ -15,6 +15,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"math/rand"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -27,7 +28,7 @@ var embedZip embed.FS
 var onefile bool = false
 var packmode int = 0
 var mainPyCode string = `main_pycode`
-
+var memoryName string = "soeasypack"
 func MessageBox(title, message string) {
 	user32, _ := windows.LoadDLL("user32.dll")
 
@@ -52,6 +53,18 @@ func fileExists(filename string) bool {
 	}
 	return true
 }
+func generateRandomString(length int) (string, error) {
+	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+
+	for i := range b {
+		b[i] = letterBytes[b[i]%byte(len(letterBytes))]
+	}
+	return string(b), nil
+}
 func createSharedMemory() (windows.Handle, uintptr) {
 	zipData, err := embedZip.ReadFile("soeasypack.zip")
 	if err != nil {
@@ -60,14 +73,14 @@ func createSharedMemory() (windows.Handle, uintptr) {
 	}
 
 	memSize := len(zipData)
-	name := "MySharedMemory"
+	memoryName, _ = generateRandomString(8)
 
 	securityAttrs := &windows.SecurityAttributes{
 		Length:        uint32(unsafe.Sizeof(windows.SecurityAttributes{})),
 		InheritHandle: 1,
 	}
 
-	namePtr, err := windows.UTF16PtrFromString(name)
+	namePtr, err := windows.UTF16PtrFromString(memoryName)
 	if err != nil {
 		MessageBox("错误", "UTF16PtrFromString 错误: "+err.Error())
 		return 0, 0
@@ -338,7 +351,7 @@ class ZipMemoryLoader(importlib.abc.MetaPathFinder, importlib.abc.Loader):
                 # 执行模块代码
                 exec(code, module.__dict__)
 
-shared_mem = shm.SharedMemory(name="MySharedMemory")
+shared_mem = shm.SharedMemory(name="%s")
 zip_data = shared_mem.buf.tobytes()
 
 shared_mem.close()
@@ -356,16 +369,13 @@ for i in remove_path:
     sys.path.remove(i)
 try:
     exec(compiled_code, globals_)
-    import inspect
-    for name, model in sys.modules.items():
-        print(name, model)
 except Exception:
     import ctypes
     import traceback
     e = traceback.format_exc()
     print(e)
     ctypes.windll.user32.MessageBoxW(0, e, "错误", 0x10)
-`, mainPyCode)
+`, memoryName, mainPyCode)
 	// 切换工作目录
 	os.Chdir(SEPHOME + "\\rundep\\AppData")
 	// 加载 pythonxx.dll
