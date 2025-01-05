@@ -1,6 +1,5 @@
-.. image:: https://img.shields.io/pypi/v/soeasypack
-   :alt: PyPI
-   :target: https://pypi.org/project/soeasypack
+
+[![PyPI Version](https://img.shields.io/pypi/v/soeasypack)](https://pypi.org/project/soeasypack)
 [![PyPI Downloads](https://static.pepy.tech/badge/soeasypack)](https://pepy.tech/projects/soeasypack)
 # SoEasyPack
 - 此项目受[PyStand](https://github.com/skywind3000/PyStand "PyStand")和[PythonSizeCruncher](https://github.com/mengdeer589/PythonSizeCruncher "PythonSizeCruncher")启发。
