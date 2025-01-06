@@ -26,7 +26,7 @@ setup(name='soeasypack',
           'Programming Language :: Python :: 3',
       ],
       keywords="soeasypack,SoEasyPack,packaging,pyinstaller,py2exe,cxfreeze",
-      install_requires=["Cython"]
+      install_requires=["altgraph", "Cython"]
       )
 # python setup.py sdist
 # twine upload dist/*
