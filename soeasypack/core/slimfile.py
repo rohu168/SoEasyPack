@@ -44,6 +44,7 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
         dependency_files = get_dependency_list(dependency_file_csv, pack_mode=pack_mode)
         return dependency_files
     if pack_mode == 3:
+        my_logger.info('分析依赖文件...')
         dependency_files = analyze_depends(main_run_path, except_pkgs=except_packages)
         with open(dependency_file_csv, mode='w', newline='', encoding='utf-8') as fp:
             csv_writer = csv.writer(fp)

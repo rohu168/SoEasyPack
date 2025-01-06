@@ -7,8 +7,6 @@ Created on 2024-11-30
 import json
 import os
 import py_compile
-import random
-import string
 import subprocess
 import sys
 import shutil

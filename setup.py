@@ -2,7 +2,7 @@
 @author:xmqsvip
 Created on 2024-11-29
 """
-
+from soeasypack import __version__
 from setuptools import setup, find_namespace_packages
 
 with open('README.md', encoding='utf-8') as fp:
@@ -19,7 +19,7 @@ setup(name='soeasypack',
           'soeasypack': ['dep_exe/**/*']},
       include_package_data=True,
       license='MIT',
-      version='0.9.2',
+      version=__version__,
       zip_safe=False,
       url="https://github.com/XMQSVIP/SoEasyPack",
       classifiers=[

@@ -364,9 +364,7 @@ globals_ = {'__file__': 'main', '__name__': '__main__'}
 # 将十六进制字符串转换回字节序列
 pyc_data = bytes.fromhex("%s")
 compiled_code = marshal.loads(pyc_data[16:])
-remove_path = [i for i in sys.path if 'rundep' not in i]
-for i in remove_path:
-    sys.path.remove(i)
+sys.path = [i for i in sys.path if 'rundep' in i]
 try:
     exec(compiled_code, globals_)
 except Exception:
