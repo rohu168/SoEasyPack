@@ -2,7 +2,7 @@
 @author:xmqsvip
 Created on 2024-11-29
 """
-from soeasypack import __version__
+
 from setuptools import setup, find_namespace_packages
 
 with open('README.md', encoding='utf-8') as fp:
@@ -19,14 +19,14 @@ setup(name='soeasypack',
           'soeasypack': ['dep_exe/**/*']},
       include_package_data=True,
       license='MIT',
-      version=__version__,
+      version='0.9.5',
       zip_safe=False,
       url="https://github.com/XMQSVIP/SoEasyPack",
       classifiers=[
           'Programming Language :: Python :: 3',
       ],
-      keywords="soeasypack,SoEasyPack,packaging,pyinstaller,py2exe,cxfreeze",
-      install_requires=["altgraph", "Cython"]
+      keywords=["soeasypack", "packaging", "pyinstaller", "py2exe", "cxfreeze"],
+      install_requires=["setuptools", "altgraph", "Cython"]
       )
 # python setup.py sdist
 # twine upload dist/*

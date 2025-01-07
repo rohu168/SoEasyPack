@@ -13,7 +13,7 @@
 | nuitka打包               | 67.9M |
 | PyStand仅删除pip文件夹       | 56.9M |
 | Pyinstaller打包后模块缺失 补模块 | 49.3M |
-| soeasypack的ast模式打包     | 41.9M |
+| soeasypack的ast模式打包     | 39.0M |
 | soeasypack的快速模式打包      | 33.5M |
 | soeasypack的普通模式打包      | 33.5M |
 | soeasypack的单exe模式打包    | 16.3M |

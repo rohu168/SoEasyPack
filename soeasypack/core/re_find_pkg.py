@@ -1,5 +1,7 @@
 """
 查找项目使用的包
+@author: xmqsvip
+Created on 2025-01-05
 """
 import re
 import os
@@ -10,7 +12,7 @@ def find_imports(file_dir, search_compile, add_pkg_names):
     imports = set()
 
     for root, dirs, files in os.walk(file_dir, topdown=True):
-        exclude_dirs =('IPython', 'PyInstaller', 'py2exe', 'nuitka', 'soeasypack')
+        exclude_dirs = ('IPython', 'PyInstaller', 'py2exe', 'nuitka', 'soeasypack')
         for dir_ in exclude_dirs:
             if dir_ in root:
                 continue
@@ -33,6 +35,7 @@ def find_imports(file_dir, search_compile, add_pkg_names):
 
     return imports
 
+
 def get_import_pkgs(pkg_names, site_pkg_dir, search_compile, add_pkg_names, remove_pkg_names):
     for pkg_name in pkg_names:
         if pkg_name in add_pkg_names:
@@ -48,6 +51,7 @@ def get_import_pkgs(pkg_names, site_pkg_dir, search_compile, add_pkg_names, remo
                 pkg_names.union(imports)
         else:
             remove_pkg_names.add(pkg_name)
+
 
 def find_pkgs(file_path):
     pkg_names = set()
@@ -69,4 +73,3 @@ def find_pkgs(file_path):
         if i in pkg_names:
             pkg_names.remove(i)
     return pkg_names
-

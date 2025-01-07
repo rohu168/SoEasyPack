@@ -84,7 +84,8 @@ def copy_py_env(save_dir, main_run_path=None, pack_mode=0, monitoring_time=18, e
     if pack_mode in (0, 3):
         dependency_files = check_dependency_files(main_run_path, save_dir, pack_mode=pack_mode,
                                                   monitoring_time=monitoring_time, except_packages=except_packages)
-
+        if pack_mode == 3 and not embed_exe:
+            dependency_files.add(os.path.join(base_env_dir, 'python.exe'))
         rundep_dir = Path.joinpath(Path(save_dir), 'rundep').resolve()
         my_logger.info("复制python环境...")
         with ThreadPoolExecutor() as executor:
