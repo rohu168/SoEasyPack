@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import Literal, TypedDict
 from concurrent.futures import as_completed, ThreadPoolExecutor
 
-from .ast_find_depend import analyze_depends
 from .my_logger import my_logger
 from .py_to_pyd import to_pyd
 from .slimfile import to_slim_file, check_dependency_files

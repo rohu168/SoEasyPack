@@ -36,7 +36,7 @@ def find_imports(file_dir, search_compile, add_pkg_names):
     return imports
 
 
-def get_import_pkgs(pkg_names, site_pkg_dir, search_compile, add_pkg_names, remove_pkg_names):
+def get_import_pkgs(pkg_names, site_pkg_dir, search_compile, add_pkg_names, remove_pkg_names, project_pkg_names):
     for pkg_name in pkg_names:
         if pkg_name in add_pkg_names:
             continue
@@ -47,7 +47,12 @@ def get_import_pkgs(pkg_names, site_pkg_dir, search_compile, add_pkg_names, remo
             imports = find_imports(pkg_path, search_compile, add_pkg_names)
             imports = imports - remove_pkg_names
             if imports:
-                get_import_pkgs(imports, site_pkg_dir, search_compile, add_pkg_names, remove_pkg_names)
+                check_pkgs = ('PySide', 'PySide6', 'PyQt5', 'PyQt6')
+                for check_pkg in check_pkgs:
+                    if check_pkg in imports and check_pkg not in project_pkg_names:
+                        imports.remove(check_pkg)
+
+                get_import_pkgs(imports, site_pkg_dir, search_compile, add_pkg_names, remove_pkg_names, project_pkg_names)
                 pkg_names.union(imports)
         else:
             remove_pkg_names.add(pkg_name)
@@ -59,15 +64,16 @@ def find_pkgs(file_path):
     search_compile = re.compile(r'^(?:\s*from\s+(\w+)|\s*import\s+(\w+))')
     file_dir = os.path.dirname(file_path)
     site_pkg_dir = os.path.join(current_env_dir, 'Lib\\site-packages')
-    pkg_names_ = find_imports(file_dir, search_compile, pkg_names)
-    for pkg_name in pkg_names_:
+    project_pkg_names = find_imports(file_dir, search_compile, pkg_names)
+
+    for pkg_name in project_pkg_names:
         pkg_path = os.path.join(site_pkg_dir, pkg_name)
         if os.path.exists(pkg_path):
             pkg_names.add(pkg_name)
 
     add_pkg_names = set()
     remove_pkg_names = set()
-    get_import_pkgs(pkg_names, site_pkg_dir, search_compile, add_pkg_names, remove_pkg_names)
+    get_import_pkgs(pkg_names, site_pkg_dir, search_compile, add_pkg_names, remove_pkg_names, project_pkg_names)
     pkg_names = pkg_names | add_pkg_names - remove_pkg_names
     for i in ('IPython', 'PyInstaller', 'nuitka', 'cx_Freeze', 'py2exe', 'soeasypack'):
         if i in pkg_names:

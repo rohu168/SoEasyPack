@@ -8,15 +8,15 @@
 - 快速/普通模式原理：使用微软[procmon](https://learn.microsoft.com/en-us/sysinternals/downloads/procmon "procmon")进程监控工具（已内置），监控项目运行时访问的文件记录
 - 仅支持windows，且仅在windows10和11上测试过
 ## 虚拟环境打包大小对比
-| 打包工具                   | 打包后大小 |
-|------------------------|-------|
-| nuitka 2.5.9打包         | 67.9M |
-| PyStand仅删除pip文件夹       | 56.9M |
-| Pyinstaller 6.11.1打包   | 43.6M |
-| soeasypack的ast模式打包     | 39.0M |
-| soeasypack的快速模式打包      | 33.5M |
-| soeasypack的普通模式打包      | 33.5M |
-| soeasypack的单exe模式打包    | 16.3M |
+| 打包工具                        | 打包后大小 |
+|-----------------------------|-------|
+| nuitka 2.5.9打包              | 67.9M |
+| PyStand仅删除pip文件夹            | 56.9M |
+| Pyinstaller 6.11.1打包缺依赖 补上后 | 49.1M |
+| soeasypack的ast模式打包          | 43.7M |
+| soeasypack的快速模式打包           | 33.5M |
+| soeasypack的普通模式打包           | 33.5M |
+| soeasypack的单exe模式打包         | 16.3M |
 
 | 使用soeasypack的to_slim_file瘦身  | 原体积大小 | 瘦身后大小    | 瘦身比例   |
 |---------------------------------|-------|------------|--------|

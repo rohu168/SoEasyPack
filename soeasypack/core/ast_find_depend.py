@@ -5,17 +5,22 @@ Created on 2025-01-05
 """
 import copy
 import os
+import re
 import sys
 from soeasypack.core.re_find_pkg import find_pkgs
 from soeasypack.lib.modulegraph.modulegraph import ModuleGraph
 
 
-def add_depends(depends: set, pkg_paths: set, special_pkgs: set, pkg_names:set):
+def add_depends(depends: set, pkg_paths: set, special_pkgs: set, project_pkg_names: set):
+    """
+
+    """
     add_depend_paths = []
     depend_paths_append = add_depend_paths.append
     checked_dir = set()
     remove_paths = []
     has_web_engine = False
+    sub_compile = re.compile(r'(?<!\\)#.*?$|(?:\'\'\'[\s\S]*?\'\'\'|\"\"\"[\s\S]*?\"\"\")', flags=re.MULTILINE)
     for depend_path in depends:
         if 'site-packages' not in depend_path:
             continue
@@ -26,7 +31,7 @@ def add_depends(depends: set, pkg_paths: set, special_pkgs: set, pkg_names:set):
             continue
         checked_dir.add(package_path)
         is_remove = False
-        for pkg_name in pkg_names:
+        for pkg_name in project_pkg_names:
             if pkg_name.lower() not in package_name.lower():
                 is_remove = True
             else:
@@ -45,10 +50,13 @@ def add_depends(depends: set, pkg_paths: set, special_pkgs: set, pkg_names:set):
             if '__pycache__' in root:
                 continue
             for f in files:
-                if f.endswith(('.py', '.pyx')):
-                    py_files_append(os.path.join(root, f))
+                file_path = os.path.join(root, f)
+                if f.endswith('.pyx'):
+                    py_files_append(file_path)
+                elif f.endswith('.py'):
+                    if os.path.join(root, f) in depends:
+                        py_files_append(file_path)
                 else:
-                    file_path = os.path.join(root, f)
                     file_name = os.path.basename(file_path)
                     if f.endswith(('.json', '.pem')):
                         add_depend_paths.append(file_path)
@@ -85,7 +93,8 @@ def add_depends(depends: set, pkg_paths: set, special_pkgs: set, pkg_names:set):
                 content = fp.read()
 
             for dll_file_name in other_files:
-                if dll_file_name.split('.', 1)[0].replace('Qt6', '') not in file_name:
+                base_dll_name = dll_file_name.split('.', 1)[0]
+                if base_dll_name.replace('Qt6', '') not in file_name:
                     is_in = False
                     if mode == 'rb':
                         dll_file_name = dll_file_name.encode('utf-8')
@@ -94,14 +103,17 @@ def add_depends(depends: set, pkg_paths: set, special_pkgs: set, pkg_names:set):
                                 is_in = True
                         else:
                             # # pyd
-                            if b'.'+dll_file_name in content:
+                            if b'.' + dll_file_name in content:
                                 is_in = True
                     else:
                         # # py
-                            if dll_file_name in content:
-                                is_in = True
+                        # # 去除注释和文档字符串
+                        content = sub_compile.sub('', content)
+                        if dll_file_name in content or base_dll_name in content:
+                            is_in = True
 
                     if is_in:
+
                         if mode == 'rb':
                             dll_file_name = dll_file_name.decode('utf-8')
                         depend_paths_append(other_files[dll_file_name])
@@ -154,7 +166,7 @@ def add_depends(depends: set, pkg_paths: set, special_pkgs: set, pkg_names:set):
             dll_file = os.path.join(base_env_dir, f)
             depends.add(dll_file)
     # # 补充encodings
-    encodings_dir_files = ('gbk.py', 'latin_1.py', 'utf_8.py', 'utf_16_be.py')
+    encodings_dir_files = ('gbk.py', 'latin_1.py', 'utf_8.py', 'utf_16_be.py', 'cp437.py')
     for encodings_file in encodings_dir_files:
         depends.add(os.path.join(base_env_dir, 'Lib', 'encodings', encodings_file))
     # # 补充libxxx.dll
@@ -200,6 +212,7 @@ def add_depends(depends: set, pkg_paths: set, special_pkgs: set, pkg_names:set):
 def analyze_depends(main_script_path, except_pkgs=None):
     """
     分析给定Python项目主文件的所有依赖关系。
+
     """
 
     base_env_dir = sys.base_prefix
@@ -212,8 +225,16 @@ def analyze_depends(main_script_path, except_pkgs=None):
             search_paths.append(path)
 
     sys.path = search_paths
+
     excludes = ['IPython', 'test', 'lib2to3', 'pydoc_data', 'tests', 'pkg_resources',
-                'pycparser', 'packaging', 'setuptools', 'unittest']
+                'pycparser', 'packaging', 'setuptools', 'unittest', 'IPython',
+                'PyInstaller', 'nuitka', 'cx_Freeze', 'py2exe', 'soeasypack']
+    project_pkg_names = find_pkgs(main_script_path)
+    check_pkgs = ('PySide2', 'PySide6', 'PyQt5', 'PyQt6')
+    for check_pkg in check_pkgs:
+        if check_pkg not in project_pkg_names:
+            excludes.append(check_pkg)
+
     if except_pkgs:
         excludes.extend(except_pkgs)
     mg = ModuleGraph(excludes=excludes)
@@ -243,7 +264,6 @@ def analyze_depends(main_script_path, except_pkgs=None):
                 if node.packagepath:
                     pkg_paths.add(node.packagepath[0])
 
-    pkg_names = find_pkgs(main_script_path)
-    add_depends(depends, pkg_paths, special_pkgs, pkg_names)
+    add_depends(depends, pkg_paths, special_pkgs, project_pkg_names)
     os.chdir(current_dir)
     return depends
