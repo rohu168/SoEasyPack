@@ -7,6 +7,8 @@ import re
 import os
 import sys
 
+CHECK_PKGS = ('PySide', 'PySide6', 'PyQt5', 'PyQt6', 'PySimpleGUI', 'nicegui')
+
 
 def find_imports(file_dir, search_compile, add_pkg_names):
     imports = set()
@@ -47,12 +49,12 @@ def get_import_pkgs(pkg_names, site_pkg_dir, search_compile, add_pkg_names, remo
             imports = find_imports(pkg_path, search_compile, add_pkg_names)
             imports = imports - remove_pkg_names
             if imports:
-                check_pkgs = ('PySide', 'PySide6', 'PyQt5', 'PyQt6')
-                for check_pkg in check_pkgs:
+                for check_pkg in CHECK_PKGS:
                     if check_pkg in imports and check_pkg not in project_pkg_names:
                         imports.remove(check_pkg)
 
-                get_import_pkgs(imports, site_pkg_dir, search_compile, add_pkg_names, remove_pkg_names, project_pkg_names)
+                get_import_pkgs(imports, site_pkg_dir, search_compile, add_pkg_names, remove_pkg_names,
+                                project_pkg_names)
                 pkg_names.union(imports)
         else:
             remove_pkg_names.add(pkg_name)
@@ -75,7 +77,13 @@ def find_pkgs(file_path):
     remove_pkg_names = set()
     get_import_pkgs(pkg_names, site_pkg_dir, search_compile, add_pkg_names, remove_pkg_names, project_pkg_names)
     pkg_names = pkg_names | add_pkg_names - remove_pkg_names
-    for i in ('IPython', 'PyInstaller', 'nuitka', 'cx_Freeze', 'py2exe', 'soeasypack'):
+    for i in ('pip', 'IPython', 'PyInstaller', 'nuitka', 'cx_Freeze', 'py2exe', 'soeasypack'):
         if i in pkg_names:
             pkg_names.remove(i)
+
     return pkg_names
+
+
+if __name__ == '__main__':
+    file_path = r'C:\Users\Administrator\Desktop\bb\pdf_excel\main.py'
+    pkgs = find_pkgs(file_path)

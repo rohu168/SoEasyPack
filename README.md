@@ -26,7 +26,7 @@
 
 ## 安装
 
-soeasypack is available on PyPI. You can install it through pip::
+soeasypack is available on PyPI. You can install it through pip:
 
 
 ```shell

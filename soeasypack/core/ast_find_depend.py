@@ -4,57 +4,50 @@ ast分析依赖
 Created on 2025-01-05
 """
 import copy
+import logging
 import os
 import re
 import sys
-from soeasypack.core.re_find_pkg import find_pkgs
-from soeasypack.lib.modulegraph.modulegraph import ModuleGraph
+
+from soeasypack.core.re_find_pkg import find_pkgs, CHECK_PKGS
+# from soeasypack.lib.modulegraph.modulegraph import ModuleGraph
+from soeasypack.lib.modulegraph2 import ModuleGraph, PyPIDistribution
+
+logging.getLogger("comtypes").setLevel(logging.ERROR)
 
 
-def add_depends(depends: set, pkg_paths: set, special_pkgs: set, project_pkg_names: set):
+def add_depends(depends: set, special_pkgs: set):
     """
-
+    补充依赖文件
     """
     add_depend_paths = []
     depend_paths_append = add_depend_paths.append
     checked_dir = set()
-    remove_paths = []
     has_web_engine = False
     sub_compile = re.compile(r'(?<!\\)#.*?$|(?:\'\'\'[\s\S]*?\'\'\'|\"\"\"[\s\S]*?\"\"\")', flags=re.MULTILINE)
+    # # 查找可能需要的文件
     for depend_path in depends:
         if 'site-packages' not in depend_path:
             continue
         depend_path_split = depend_path.split('site-packages')
         package_name = depend_path_split[1].split('\\', 2)[1]
         package_path = depend_path_split[0] + f'site-packages\\{package_name}'
-        if depend_path in checked_dir or os.path.isfile(package_path):
+        if package_path in checked_dir or os.path.isfile(package_path):
             continue
         checked_dir.add(package_path)
-        is_remove = False
-        for pkg_name in project_pkg_names:
-            if pkg_name.lower() not in package_name.lower():
-                is_remove = True
-            else:
-                is_remove = False
-                break
-        if is_remove:
-            remove_paths.append(package_path)
-            if package_path in pkg_paths:
-                pkg_paths.remove(package_path)
-            continue
 
         py_files_path = []
         other_files = {}
         py_files_append = py_files_path.append
-        for root, dirs, files in os.walk(package_path, topdown=True):
-            if '__pycache__' in root:
+        for root, dirs, files in os.walk(package_path):
+            if '__pycache__' in root or ('plugins' in root and 'PySide' in root):
                 continue
             for f in files:
                 file_path = os.path.join(root, f)
                 if f.endswith('.pyx'):
                     py_files_append(file_path)
                 elif f.endswith('.py'):
-                    if os.path.join(root, f) in depends:
+                    if file_path in depends:
                         py_files_append(file_path)
                 else:
                     file_name = os.path.basename(file_path)
@@ -67,11 +60,10 @@ def add_depends(depends: set, pkg_paths: set, special_pkgs: set, project_pkg_nam
                         file_name = file_name.split('.', 1)[0]
                         other_files[file_name] = file_path
 
+        has_pyside = False
         # # 判断似乎否有 QtWebEngine
         if 'PySide' in package_path:
-            for root, dirs, files in os.walk(package_path + '\\plugins'):
-                for f in files:
-                    depend_paths_append(os.path.join(root, f))
+            has_pyside = True
             if 'QtWebEngineWidgets' in depends:
                 has_web_engine = True
 
@@ -79,10 +71,9 @@ def add_depends(depends: set, pkg_paths: set, special_pkgs: set, project_pkg_nam
             continue
         py_files_path.extend(other_files.values())
         for file in py_files_path:
-            if not other_files:
-                break
+            if file.endswith('.dll'):
+                continue
             file_name = os.path.basename(file)
-            fined_dll_files = []
             mode = 'rb'
             encodings = None
             if file.endswith(('.py', 'pyx')):
@@ -113,14 +104,10 @@ def add_depends(depends: set, pkg_paths: set, special_pkgs: set, project_pkg_nam
                             is_in = True
 
                     if is_in:
-
                         if mode == 'rb':
                             dll_file_name = dll_file_name.decode('utf-8')
                         depend_paths_append(other_files[dll_file_name])
-                        fined_dll_files.append(dll_file_name)
 
-            for f in fined_dll_files:
-                del other_files[f]
             del content
             # # 去除WebEngine
             if not has_web_engine:
@@ -129,35 +116,43 @@ def add_depends(depends: set, pkg_paths: set, special_pkgs: set, project_pkg_nam
                     if 'Web' in depend:
                         add_depend_paths.remove(depend)
                 del depends_
-    depends_ = copy.deepcopy(depends)
-    for depend_path in depends_:
-        if 'site-packages' not in depend_path:
-            continue
-        for i in remove_paths:
-            if i in depend_path and depend_path in depends:
-                depends.remove(depend_path)
-    del depends_
+
+        # # 补充pyside/plugins文件夹内容
+        if has_pyside:
+            file_plugin_map = {
+                "QtQuick": ["scenegraph"],
+                "QtQml": ["qmltooling"],
+                "QtXml": ["scxmldatamodel"],
+                "QtDesigner": ["designer"],
+                "QtWidgets": ["styles"],
+                "QtSql": ["sqldrivers"],
+                "QtSensors": ["sensors"],
+                "QtDeclarative": ["qml1tooling"],
+                "QtPositioning": ["position"],
+                "QtLocation": ["geoservices"],
+                "QtPrintSupport": ["printsupport"],
+                "QtNetwork": ["networkinformation", "tls"],
+                "Qt3DRender": ["geometryloaders", "renderplugins", "renderers", "sceneparsers"],
+                "QtMultimedia": ["multimedia"],
+                "QtGui": ["accessiblebridge", "generic", "iconengines", "imageformats",
+                          "platforms", "platforminputcontexts"]
+            }
+            plugins_dir = os.path.join(package_path, 'plugins')
+            for pyd_file in other_files:
+                if not pyd_file.endswith('.dll'):
+                    if pyd_file in file_plugin_map:
+                        for i in file_plugin_map[pyd_file]:
+                            plugin_dir = os.path.join(plugins_dir, i)
+                            if os.path.exists(plugin_dir):
+                                for file in os.listdir(plugin_dir):
+                                    file_path = os.path.join(plugins_dir, i, file)
+                                    add_depend_paths.append(file_path)
+
     for file_path in add_depend_paths:
         depends.add(file_path)
 
-    # # 补充site-packages目录下的pyd
     current_env_dir = sys.prefix
     site_pkg_dir = os.path.join(current_env_dir, 'Lib\\site-packages')
-    pyd_name_path = {}
-    site_pkg_names = []
-    for f in os.listdir(site_pkg_dir):
-        ff = os.path.join(site_pkg_dir, f)
-        if os.path.isfile(ff) and f.endswith('.pyd'):
-            pyd_name_path[f.split('.', 1)[0]] = ff
-        else:
-            if ff in pkg_paths:
-                site_pkg_names.append(f)
-
-    for site_pkg_name in site_pkg_names:
-        for pyd_name in pyd_name_path:
-            if site_pkg_name in pyd_name:
-                file_path = pyd_name_path[pyd_name]
-                depends.add(file_path)
 
     # #补充python目录下的dll
     base_env_dir = sys.base_prefix
@@ -165,10 +160,12 @@ def add_depends(depends: set, pkg_paths: set, special_pkgs: set, project_pkg_nam
         if os.path.isfile(os.path.join(base_env_dir, f)) and f.endswith('.dll'):
             dll_file = os.path.join(base_env_dir, f)
             depends.add(dll_file)
+
     # # 补充encodings
     encodings_dir_files = ('gbk.py', 'latin_1.py', 'utf_8.py', 'utf_16_be.py', 'cp437.py')
     for encodings_file in encodings_dir_files:
         depends.add(os.path.join(base_env_dir, 'Lib', 'encodings', encodings_file))
+
     # # 补充libxxx.dll
     dlls_dir = os.path.join(base_env_dir, 'DLLs')
     for f in os.listdir(dlls_dir):
@@ -176,6 +173,7 @@ def add_depends(depends: set, pkg_paths: set, special_pkgs: set, project_pkg_nam
         if 'lib' in f and os.path.isfile(file_path):
             dll_file_path = file_path
             depends.add(dll_file_path)
+
     # #补充tkinter包数据
     dlls_dir_files = []
     if 'tkinter' in special_pkgs:
@@ -199,6 +197,7 @@ def add_depends(depends: set, pkg_paths: set, special_pkgs: set, project_pkg_nam
 
     for dlls_file in dlls_dir_files:
         depends.add(os.path.join(dlls_dir, dlls_file))
+
     # #补充curl_cffi包数据
     if 'curl_cffi' in special_pkgs:
         for dir_ in os.listdir(site_pkg_dir):
@@ -226,44 +225,39 @@ def analyze_depends(main_script_path, except_pkgs=None):
 
     sys.path = search_paths
 
-    excludes = ['IPython', 'test', 'lib2to3', 'pydoc_data', 'tests', 'pkg_resources',
-                'pycparser', 'packaging', 'setuptools', 'unittest', 'IPython',
+    excludes = ['IPython', 'test', 'tests', 'pip', 'lib2to3', 'pydoc_data', 'pkg_resources',
+                'pycparser', 'packaging', 'setuptools', 'unittest',
                 'PyInstaller', 'nuitka', 'cx_Freeze', 'py2exe', 'soeasypack']
     project_pkg_names = find_pkgs(main_script_path)
-    check_pkgs = ('PySide2', 'PySide6', 'PyQt5', 'PyQt6')
-    for check_pkg in check_pkgs:
+
+    for check_pkg in CHECK_PKGS:
         if check_pkg not in project_pkg_names:
             excludes.append(check_pkg)
 
     if except_pkgs:
         excludes.extend(except_pkgs)
-    mg = ModuleGraph(excludes=excludes)
 
-    current_dir = os.getcwd()
-    os.chdir(script_dir)
+    mg = ModuleGraph()
+    mg.add_excludes(excludes)
 
     depends = set()
-    pkg_paths = set()
     special_pkgs = set()
-    mg.run_script(main_script_path)
+    mg.add_script(main_script_path)
 
-    for node in mg.nodes():
-        if hasattr(node, 'filename') and node.filename:
-            abs_path = os.path.abspath(node.filename)
-            if os.path.isfile(abs_path):
-                if script_dir in abs_path or '__pycache' in abs_path or (
-                        'site-packages' in abs_path and abs_path.endswith('.pyd')):
-                    continue
-
-                if 'tkinter' in abs_path:
+    for node in mg.iter_graph():
+        if isinstance(node, PyPIDistribution):
+            continue
+        if node.filename:
+            file_path = os.path.abspath(node.filename)
+            if base_env_dir in file_path or current_env_dir in file_path:
+                if type(node).__name__ == "Package":
+                    file_path = os.path.join(file_path, '__init__.py')
+                if 'tkinter' in file_path:
                     special_pkgs.add('tkinter')
-                elif 'curl_cffi' in abs_path:
+                elif 'curl_cffi' in file_path:
                     special_pkgs.add('curl_cffi')
 
-                depends.add(abs_path)
-                if node.packagepath:
-                    pkg_paths.add(node.packagepath[0])
+                depends.add(file_path)
 
-    add_depends(depends, pkg_paths, special_pkgs, project_pkg_names)
-    os.chdir(current_dir)
+    add_depends(depends, special_pkgs)
     return depends
