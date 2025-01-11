@@ -7,6 +7,8 @@ Created on 2024-11-30
 import json
 import os
 import py_compile
+import random
+import string
 import subprocess
 import sys
 import shutil
@@ -183,6 +185,27 @@ def copy_embed_depend(save_dir, base_env_dir):
     shutil.copytree(importlib_dir, to_importlib_dir, dirs_exist_ok=True)
 
 
+def xor_encrypt(file_path, key):
+    """
+    xor混淆
+    :param file_path:
+    :param key:
+    :return:
+    """
+    key_bytes = key.encode('utf-8')
+    key_length = len(key_bytes)
+
+    with open(file_path, 'r+b') as f:
+        data = bytearray(f.read())
+        len_data = len(data)
+
+        for i in range(len_data):
+            data[i] ^= key_bytes[i % key_length]
+        f.seek(0)
+        f.write(data)
+        f.truncate()
+
+
 def copy_py_script(main_py_path, save_dir):
     my_logger.info('复制你的脚本目录...')
     relpath_name = None
@@ -228,7 +251,7 @@ start /B "" %python_path% main.{py_suffix}"
 def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path: str = None,
               embed_exe: bool = False, onefile: bool = False, pack_mode=0, winres_json_path: str = None,
               file_version: str = None, product_name: str = None, company: str = None, uac: bool = False,
-              all_pyc_zip: bool = False
+              all_pyc_zip: bool = False, pip_source: str = None
               ):
     """
     使用go语言编译
@@ -245,6 +268,7 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
     :param company:
     :param uac:
     :param all_pyc_zip:
+    :param pip_source:
     :return:
     """
 
@@ -280,6 +304,12 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
                             full_path = os.path.join(root, file)
                             archive_name = os.path.relpath(full_path, start=rundep_dir)
                             zipf.write(full_path, arcname=archive_name)
+        # # 生成密钥
+        characters = random.choices(string.ascii_letters + string.digits, k=14)
+        xor_key = list(characters) + [random.choice(string.digits), random.choice(string.ascii_letters)]
+        random.shuffle(xor_key)
+        xor_key = ''.join(xor_key)
+
         # # 修改go代码
         shutil.copyfile(go_py_path, dest_go_py_path)
         with open(dest_go_py_path, 'r+', encoding='utf-8') as fp:
@@ -287,19 +317,27 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
             fp.seek(0)
             py_version = sys.version.replace('.', '', 1).split('.', 1)[0]
             edited_go_code = (go_code.replace('python3.dll', f'python{py_version}.dll').
-                              replace('main_pycode', main_py_code_hex))
+                              replace('main_pycode', main_py_code_hex).
+                              replace('xor_key', xor_key, 1))
             if onefile:
-                edited_go_code = (edited_go_code.replace('embed soeasypack.zip',
-                                                         'embed soeasypack.zip rundep.zip', 1).
-                                  replace('onefile bool = false', 'onefile bool = true', 1))
+                edited_go_code = (edited_go_code.replace('embed soeasypack.sz',
+                                                         'embed soeasypack.sz rundep.zip', 1).
+                                  replace('onefile bool = false', 'onefile bool = true', 1)
+                                  )
             elif pack_mode == 2:
-                edited_go_code = (edited_go_code.replace('var packmode int = 0', 'var packmode int = 2', 1))
+                if not pip_source:
+                    pip_source = 'https://pypi.tuna.tsinghua.edu.cn/simple'
+                edited_go_code = (edited_go_code.replace(
+                    'var packmode int = 0', 'var packmode int = 2', 1).replace(
+                    'pip_source', pip_source
+                ))
             fp.write(edited_go_code)
             fp.truncate()
         # # 生成zip归档
-        zip_path = Path.joinpath(temp_build_dir, 'soeasypack.zip')
+        zip_path = Path.joinpath(temp_build_dir, 'soeasypack.sz')
         app_data_dir = Path.joinpath(Path(save_dir), 'rundep')
         if all_pyc_zip:
+            # # 压缩python自带的模块
             python_zip_path = Path.joinpath(Path(save_dir), f'rundep/python{py_version}.zip')
             lib_dir = Path.joinpath(Path(save_dir), 'rundep/Lib')
             with zipfile.ZipFile(python_zip_path, 'w') as zip_fp:
@@ -330,6 +368,7 @@ def build_exe(save_dir, hide_cmd: bool = True, exe_name: str = 'main', png_path:
                             zip_fp.write(full_path, arcname=archive_name)
                             ready_remove_pyc.append(full_path)
 
+        xor_encrypt(zip_path, xor_key)
         for i in ready_remove_pyc:
             if os.path.exists(i):
                 os.remove(i)
@@ -434,7 +473,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
             auto_py_pyd: bool = False, embed_exe: bool = False, onefile: bool = False,
             monitoring_time: int = 18, uac: bool = False, requirements_path: str = None,
             except_packages: [str] = None, winres_json_path: str = None, delay_time: int = 3,
-            all_pyc_zip: bool = False,
+            all_pyc_zip: bool = False, pip_source: str = None,
             **kwargs: KwargsType) -> None:
     """
     :param main_py_path:主入口py文件路径
@@ -464,6 +503,7 @@ def to_pack(main_py_path: str, save_dir: str = None,
     :param winres_json_path: exe应用信息文件路径
     :param delay_time: 启动监控工具后延时几秒启动用户程序
     :param all_pyc_zip: 把所有.pyc文件压缩进zip
+    :param pip_source: 轻量模式pip下载源地址，默认为 https://pypi.tuna.tsinghua.edu.cn/simple
     :param kwargs: file_version: str, product_name: str, company: str
     :return:
     """
@@ -542,7 +582,8 @@ def to_pack(main_py_path: str, save_dir: str = None,
     if not (embed_exe or onefile):
         create_bat(save_dir, embed_exe)
 
-    build_exe(save_dir, hide_cmd, exe_name, png_path, embed_exe=embed_exe, onefile=onefile,
-              uac=uac, pack_mode=pack_mode, winres_json_path=winres_json_path, all_pyc_zip=all_pyc_zip, **kwargs)
+    build_exe(save_dir, hide_cmd, exe_name, png_path, embed_exe=embed_exe, onefile=onefile, uac=uac,
+              pack_mode=pack_mode, winres_json_path=winres_json_path, all_pyc_zip=all_pyc_zip, pip_source=pip_source,
+              **kwargs)
 
     my_logger.info('结束')

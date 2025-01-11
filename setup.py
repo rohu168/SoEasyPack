@@ -19,7 +19,7 @@ setup(name='soeasypack',
           'soeasypack': ['dep_exe/**/*']},
       include_package_data=True,
       license='MIT',
-      version='0.9.7',
+      version='0.9.8',
       zip_safe=False,
       url="https://github.com/XMQSVIP/SoEasyPack",
       classifiers=[

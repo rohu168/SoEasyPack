@@ -9,8 +9,7 @@ import os
 import re
 import sys
 
-from soeasypack.core.re_find_pkg import find_pkgs, CHECK_PKGS
-# from soeasypack.lib.modulegraph.modulegraph import ModuleGraph
+from soeasypack.core.re_find_pkg import find_pkgs, CHECK_PKGS, EXCLUDE_DIRS
 from soeasypack.lib.modulegraph2 import ModuleGraph, PyPIDistribution
 
 logging.getLogger("comtypes").setLevel(logging.ERROR)
@@ -208,10 +207,9 @@ def add_depends(depends: set, special_pkgs: set):
                         depends.add(os.path.join(root, f))
 
 
-def analyze_depends(main_script_path, except_pkgs=None):
+def analyze_depends(main_script_path: str, except_pkgs: list = None):
     """
     分析给定Python项目主文件的所有依赖关系。
-
     """
 
     base_env_dir = sys.base_prefix
@@ -226,8 +224,8 @@ def analyze_depends(main_script_path, except_pkgs=None):
     sys.path = search_paths
 
     excludes = ['IPython', 'test', 'tests', 'pip', 'lib2to3', 'pydoc_data', 'pkg_resources',
-                'pycparser', 'packaging', 'setuptools', 'unittest',
-                'PyInstaller', 'nuitka', 'cx_Freeze', 'py2exe', 'soeasypack']
+                'pycparser', 'packaging', 'setuptools', 'unittest'] + EXCLUDE_DIRS
+
     project_pkg_names = find_pkgs(main_script_path)
 
     for check_pkg in CHECK_PKGS:

@@ -23,12 +23,13 @@ import (
 	"windows"
 )
 
-//go:embed soeasypack.zip
+//go:embed soeasypack.sz
 var embedZip embed.FS
 var onefile bool = false
 var packmode int = 0
 var mainPyCode string = `main_pycode`
-var memoryName string = "soeasypack"
+var memoryName string = "memory_name"
+var xorKey string = "xor_key"
 func MessageBox(title, message string) {
 	user32, _ := windows.LoadDLL("user32.dll")
 
@@ -66,7 +67,7 @@ func generateRandomString(length int) (string, error) {
 	return string(b), nil
 }
 func createSharedMemory() (windows.Handle, uintptr) {
-	zipData, err := embedZip.ReadFile("soeasypack.zip")
+	zipData, err := embedZip.ReadFile("soeasypack.sz")
 	if err != nil {
 		MessageBox("错误", "找不到zipData:"+err.Error())
 		return 0, 0
@@ -246,8 +247,11 @@ func main() {
 						MessageBox("提示", "自动下载依赖包失败:"+err.Error())
 						os.Exit(1)
 					} else {
-					    cmd := exec.Command("cmd", "/c", "python.exe -m pip install -U pip -i https://pypi.tuna.tsinghua.edu.cn/simple")
-						cmd = exec.Command("cmd", "/c", "python.exe -m pip install -r AppData\\requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple")
+					    cmd := exec.Command("cmd", "/c", "python.exe -m pip install -U pip -i pip_source")
+						cmd.Stdout = os.Stdout
+						cmd.Stderr = os.Stderr
+						cmd.Run()
+						cmd = exec.Command("cmd", "/c", "python.exe -m pip install -r AppData\\requirements.txt -i pip_source")
 						cmd.Stdout = os.Stdout
 						cmd.Stderr = os.Stderr
 
@@ -352,10 +356,15 @@ class ZipMemoryLoader(importlib.abc.MetaPathFinder, importlib.abc.Loader):
                 exec(code, module.__dict__)
 
 shared_mem = shm.SharedMemory(name="%s")
-zip_data = shared_mem.buf.tobytes()
-
+zip_data = bytearray(shared_mem.buf.tobytes())
 shared_mem.close()
 del shared_mem
+key_bytes = "%s".encode('utf-8')
+key_length = len(key_bytes)
+len_data = len(zip_data)
+for i in range(len_data):
+    zip_data[i] ^= key_bytes[i %% key_length]
+zip_data = bytes(zip_data)
 loader = ZipMemoryLoader(zip_data)
 sys.meta_path.insert(0, loader)
 sys.frozen = True
@@ -373,7 +382,7 @@ except Exception:
     e = traceback.format_exc()
     print(e)
     ctypes.windll.user32.MessageBoxW(0, e, "错误", 0x10)
-`, memoryName, mainPyCode)
+`, memoryName, xorKey, mainPyCode)
 	// 切换工作目录
 	os.Chdir(SEPHOME + "\\rundep\\AppData")
 	// 加载 pythonxx.dll

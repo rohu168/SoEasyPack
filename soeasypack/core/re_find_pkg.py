@@ -7,15 +7,16 @@ import re
 import os
 import sys
 
-CHECK_PKGS = ('PySide', 'PySide6', 'PyQt5', 'PyQt6', 'PySimpleGUI', 'nicegui')
+CHECK_PKGS = ('PySide2', 'PySide6', 'PyQt5', 'PyQt6', 'PySimpleGUI', 'nicegui', 'flet', 'kivy',
+              'matplotlib')
+EXCLUDE_DIRS = ['pip', 'IPython', 'PyInstaller', 'nuitka', 'cx_Freeze', 'py2exe', 'soeasypack']
 
 
 def find_imports(file_dir, search_compile, add_pkg_names):
     imports = set()
 
     for root, dirs, files in os.walk(file_dir, topdown=True):
-        exclude_dirs = ('IPython', 'PyInstaller', 'py2exe', 'nuitka', 'soeasypack')
-        for dir_ in exclude_dirs:
+        for dir_ in EXCLUDE_DIRS:
             if dir_ in root:
                 continue
         remove_dirs = [dir_ for dir_ in dirs if dir_.startswith('.')]
@@ -77,13 +78,8 @@ def find_pkgs(file_path):
     remove_pkg_names = set()
     get_import_pkgs(pkg_names, site_pkg_dir, search_compile, add_pkg_names, remove_pkg_names, project_pkg_names)
     pkg_names = pkg_names | add_pkg_names - remove_pkg_names
-    for i in ('pip', 'IPython', 'PyInstaller', 'nuitka', 'cx_Freeze', 'py2exe', 'soeasypack'):
+    for i in EXCLUDE_DIRS:
         if i in pkg_names:
             pkg_names.remove(i)
 
     return pkg_names
-
-
-if __name__ == '__main__':
-    file_path = r'C:\Users\Administrator\Desktop\bb\pdf_excel\main.py'
-    pkgs = find_pkgs(file_path)
