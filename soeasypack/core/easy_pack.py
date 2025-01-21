@@ -230,7 +230,7 @@ def copy_py_script(main_py_path, save_dir):
 
 
 def create_bat(save_dir, embed_exe):
-    py_suffix = 'pyc' if embed_exe else 'py'
+    py_suffix = 'py' if embed_exe else 'pyc'
 
     # 生成bat脚本
     bat_file_content = fr'''
