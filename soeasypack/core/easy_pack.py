@@ -134,7 +134,7 @@ def copy_py_env(save_dir, main_run_path=None, pack_mode=0, monitoring_time=18, e
         if pack_mode == 1:
             # # 复制 site-packages
             # # 排除复制site-packages其它无用文件
-            py_exclusions = ['__pycache__', 'pip*', '_distutils_hack', 'pkg_resources', 'setuptools*',
+            py_exclusions = ['__pycache__', "pip-*.dist-info","pip-*.egg-info", '_distutils_hack', 'pkg_resources', 'setuptools*',
                              'distutils-precedence.pth', 'better_exceptions_hook.pth',
                              'py2exe*', 'Pyinstaller*', 'cx_Freeze*', 'nuitka*',
                              'auto_py_to_exe*', 'soeasypack*']
