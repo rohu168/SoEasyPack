@@ -10,6 +10,7 @@ import (
 	"os"
 	"syscall"
 	"unsafe"
+	"path/filepath"
 )
 
 func MessageBox(title, message string) {
@@ -47,11 +48,25 @@ func main() {
 	if pythonHome == "" {
 		// 获取当前目录并设置 PYTHONHOME
 		currentDir, _ := os.Getwd()
-		os.Setenv("PYTHONHOME", currentDir+"\\rundep")
-		pyDllPath = currentDir + "\\rundep\\python3.dll"
+		rundepDir := filepath.Join(currentDir, "rundep")
+		
+		// 设置 DLL 搜索路径
+		kernel32 := syscall.MustLoadDLL("kernel32.dll")
+		setDllDirectory := kernel32.MustFindProc("SetDllDirectoryW")
+		rundepDirPtr, _ := syscall.UTF16PtrFromString(rundepDir)
+		ret, _, err := setDllDirectory.Call(uintptr(unsafe.Pointer(rundepDirPtr)))
+		if ret == 0 {
+			MessageBox("错误", "设置 DLL 目录失败: "+err.Error())
+			return
+		}
+		
+		os.Setenv("PYTHONHOME", rundepDir)
+		pyDllPath = filepath.Join(rundepDir, "python3.dll")
 		os.Setenv("pyDllPath", pyDllPath)
+		
 		// 切换工作目录
-		os.Chdir(currentDir + "\\rundep\\AppData")
+		os.Chdir(filepath.Join(rundepDir, "AppData"))
+		
 		//获取程序主入口文件
 		mianFiles := []string{"main.pyc", "main.py", "main.pyw"}
 		for _, file := range mianFiles {
