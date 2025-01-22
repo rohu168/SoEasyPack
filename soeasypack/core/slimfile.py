@@ -25,34 +25,43 @@ def is_admin():
         return False
 
 
-def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode=0,
-                           monitoring_time=18, except_packages=None, delay_time=3):
+def check_dependency_files(
+    main_run_path,
+    project_dir,
+    check_dir=None,
+    pack_mode=0,
+    monitoring_time=18,
+    except_packages=None,
+    delay_time=3,
+):
     """
     检查依赖文件
     """
 
     current_dir = Path(__file__).parent.parent
-    procmon_path = current_dir.joinpath('dep_exe/Procmon64.exe')
-    pmc_base_path = current_dir.joinpath('dep_exe/ProcmonConfiguration.pmc')
-    procmon_log_path = Path(project_dir).joinpath('procmon_log.pml')
-    csv_log_path = Path(project_dir).joinpath('procmon_log.csv')
+    procmon_path = current_dir.joinpath("dep_exe/Procmon64.exe")
+    pmc_base_path = current_dir.joinpath("dep_exe/ProcmonConfiguration.pmc")
+    procmon_log_path = Path(project_dir).joinpath("procmon_log.pml")
+    csv_log_path = Path(project_dir).joinpath("procmon_log.csv")
     dependency_file_csv = Path(project_dir).joinpath("dependency.csv")
     if pack_mode == 0:
         dependency_file_csv = Path(project_dir).joinpath("dependency_fast.csv")
     if dependency_file_csv.exists():
-        my_logger.info('已存在依赖文件清单表，跳过依赖文件检查')
+        my_logger.info("已存在依赖文件清单表，跳过依赖文件检查")
         dependency_files = get_dependency_list(dependency_file_csv, pack_mode=pack_mode)
         return dependency_files
     if pack_mode == 3:
-        my_logger.info('分析依赖文件...')
+        my_logger.info("分析依赖文件...")
         dependency_files = analyze_depends(main_run_path, except_pkgs=except_packages)
-        with open(dependency_file_csv, mode='w', newline='', encoding='utf-8') as fp:
+        with open(dependency_file_csv, mode="w", newline="", encoding="utf-8") as fp:
             csv_writer = csv.writer(fp)
             for i in dependency_files:
                 csv_writer.writerow([i])
         return dependency_files
 
-    my_logger.info('当你的项目稍后自动运行后，请进行一些必要的功能操作：如点击运行按钮等,否则可能会造成依赖缺失')
+    my_logger.info(
+        "当你的项目稍后自动运行后，请进行一些必要的功能操作：如点击运行按钮等,否则可能会造成依赖缺失"
+    )
     if is_admin():
         delay_time = 1
     else:
@@ -60,33 +69,35 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
     time.sleep(5)
     if os.path.exists(procmon_log_path):
         os.remove(procmon_log_path)
-    my_logger.info(f'准备监控依赖文件，{monitoring_time}秒后自动结束监控')
+    my_logger.info(f"准备监控依赖文件，{monitoring_time}秒后自动结束监控")
     cmd = [
         procmon_path,
         "/Minimized",
         "/AcceptEula",
-        "/Runtime", str(monitoring_time),
+        "/Runtime",
+        str(monitoring_time),
         "/Quiet",
-        "/Backingfile", procmon_log_path,
+        "/Backingfile",
+        procmon_log_path,
         # "/LoadConfig", pmc_base_path,
     ]
 
     my_logger.info(f"开始启动监控工具,{delay_time}秒后自动启动你的程序")
     procmon_process = subprocess.Popen(cmd)
     time.sleep(delay_time)
-    current_env_py = sys.executable.replace('\\', '/')
-    image_path = str(sys.base_prefix).replace('\\', '/') + '/python.exe'
+    current_env_py = sys.executable.replace("\\", "/")
+    image_path = str(sys.base_prefix).replace("\\", "/") + "/python.exe"
 
     # 启动你的脚本
-    if 'py' in str(Path(main_run_path).suffix):
+    if "py" in str(Path(main_run_path).suffix):
         if pack_mode == 0:
             main_run_cmd = [current_env_py, main_run_path]
             if not os.path.exists(image_path):
-                my_logger.error(f'未找到{image_path}')
+                my_logger.error(f"未找到{image_path}")
                 sys.exit()
         else:
-            python_exe_path = str(Path(project_dir).joinpath('rundep/python.exe'))
-            pythonw_exe_path = str(Path(project_dir).joinpath('rundep/pythonw.exe'))
+            python_exe_path = str(Path(project_dir).joinpath("rundep/python.exe"))
+            pythonw_exe_path = str(Path(project_dir).joinpath("rundep/pythonw.exe"))
             if os.path.exists(python_exe_path):
                 main_run_cmd = [python_exe_path, main_run_path]
                 image_path = python_exe_path
@@ -94,7 +105,9 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
                 main_run_cmd = [pythonw_exe_path, main_run_path]
                 image_path = pythonw_exe_path
             else:
-                my_logger.warning(f'未找到{project_dir}/rundep文件夹中的python.exe，使用当前环境的python运行脚本')
+                my_logger.warning(
+                    f"未找到{project_dir}/rundep文件夹中的python.exe，使用当前环境的python运行脚本"
+                )
                 main_run_cmd = [current_env_py, main_run_path]
 
     else:
@@ -115,9 +128,12 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
         "/AcceptEula",
         "/Quiet",
         "/NoConnect",
-        "/OpenLog", procmon_log_path,
-        "/SaveAs", csv_log_path,
-        "/LoadConfig", pmc_base_path,
+        "/OpenLog",
+        procmon_log_path,
+        "/SaveAs",
+        csv_log_path,
+        "/LoadConfig",
+        pmc_base_path,
     ]
     procmon_process = subprocess.Popen(cmd)
     procmon_process.wait()
@@ -127,7 +143,9 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
             break
         time.sleep(1)
 
-    dependency_files = get_dependency_list(csv_log_path, image_path, check_dir, pack_mode)
+    dependency_files = get_dependency_list(
+        csv_log_path, image_path, check_dir, pack_mode
+    )
     # # 排除用户指定的第三方依赖包
     if except_packages:
         ready_remove_list = []
@@ -139,7 +157,7 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
             dependency_files.remove(i)
 
     if dependency_files:
-        with open(dependency_file_csv, mode='w', newline='', encoding='utf-8') as fp:
+        with open(dependency_file_csv, mode="w", newline="", encoding="utf-8") as fp:
             csv_writer = csv.writer(fp)
             for i in dependency_files:
                 csv_writer.writerow([i])
@@ -153,37 +171,48 @@ def check_dependency_files(main_run_path, project_dir, check_dir=None, pack_mode
 
 
 def get_dependency_list(csv_log_path, image_path=None, check_dir=None, pack_mode=0):
-    my_logger.info('开始分析依赖文件...')
+    my_logger.info("开始分析依赖文件...")
     if pack_mode == 0:
-        base_env_dir = sys.base_prefix.lower().replace('\\', '/')
-        current_env_dir = sys.prefix.lower().replace('\\', '/')
+        base_env_dir = sys.base_prefix.lower().replace("\\", "/")
+        current_env_dir = sys.prefix.lower().replace("\\", "/")
         if base_env_dir == current_env_dir:
             check_dir = base_env_dir
         else:
             check_dir = [base_env_dir, current_env_dir]
 
     dependency_files = set()
-    with open(csv_log_path, encoding='utf-8') as fp:
+    with open(csv_log_path, encoding="utf-8") as fp:
         csvreader = csv.reader(fp)
         if check_dir and image_path:
-            image_path = image_path.lower().replace('\\', '/')
+            image_path = image_path.lower().replace("\\", "/")
             if isinstance(check_dir, list):
                 for row in csvreader:
-                    cell_value = row[0].replace('\\', '/')
+                    cell_value = row[0].replace("\\", "/")
                     cell_value_ = cell_value.lower()
-                    cell_value_2 = row[1].replace('\\', '/').lower()
-                    if cell_value_2 == image_path and cell_value_ and os.path.isfile(cell_value_) and (
-                            '__pycache__' not in cell_value_):
-                        if (check_dir[0] in cell_value_) or (check_dir[1] in cell_value_):
+                    cell_value_2 = row[1].replace("\\", "/").lower()
+                    if (
+                        cell_value_2 == image_path
+                        and cell_value_
+                        and os.path.isfile(cell_value_)
+                        and ("__pycache__" not in cell_value_)
+                    ):
+                        if (check_dir[0] in cell_value_) or (
+                            check_dir[1] in cell_value_
+                        ):
                             dependency_files.add(cell_value)
             else:
-                check_dir = check_dir.lower().replace('\\', '/')
+                check_dir = check_dir.lower().replace("\\", "/")
                 for row in csvreader:
-                    cell_value = row[0].replace('\\', '/')
+                    cell_value = row[0].replace("\\", "/")
                     cell_value_ = cell_value.lower()
-                    cell_value_2 = row[1].replace('\\', '/').lower()
-                    if cell_value_2 == image_path and cell_value_ and os.path.isfile(cell_value_) and (
-                            check_dir in cell_value_) and ('__pycache__' not in cell_value_):
+                    cell_value_2 = row[1].replace("\\", "/").lower()
+                    if (
+                        cell_value_2 == image_path
+                        and cell_value_
+                        and os.path.isfile(cell_value_)
+                        and (check_dir in cell_value_)
+                        and ("__pycache__" not in cell_value_)
+                    ):
                         dependency_files.add(cell_value)
         else:
             # 读取的是依赖文件清单表，跳过查找依赖文件
@@ -194,7 +223,7 @@ def get_dependency_list(csv_log_path, image_path=None, check_dir=None, pack_mode
 
 
 def move_files(check_dir, project_dir, dependency_files):
-    my_logger.info('开始瘦身...')
+    my_logger.info("开始瘦身...")
     removed_file_dir = os.path.join(project_dir, "removed_file")
 
     moved_file_num = 0
@@ -204,7 +233,7 @@ def move_files(check_dir, project_dir, dependency_files):
         if "rundep/AppData" in root:
             continue
         for filename in files:
-            src_file = str(os.path.join(root, filename)).replace('\\', '/')
+            src_file = str(os.path.join(root, filename)).replace("\\", "/")
             if src_file in dependency_files:
                 continue
             else:
@@ -236,8 +265,14 @@ def move_files(check_dir, project_dir, dependency_files):
         my_logger.info(f"移除的文件保存到了:{removed_file_dir}")
 
 
-def to_slim_file(main_run_path: str, check_dir: str, project_dir: str = None,
-                 monitoring_time: int = 18, pack_mode=1, delay_time: int = 3) -> None:
+def to_slim_file(
+    main_run_path: str,
+    check_dir: str,
+    project_dir: str = None,
+    monitoring_time: int = 18,
+    pack_mode=1,
+    delay_time: int = 3,
+) -> None:
     """
     项目瘦身
     :param main_run_path: 项目主运行文件路径,py或其它
@@ -255,6 +290,12 @@ def to_slim_file(main_run_path: str, check_dir: str, project_dir: str = None,
     main_run_path = main_run_path.replace("\\", "/")
     check_dir = check_dir.replace("\\", "/")
     project_dir = project_dir.replace("\\", "/")
-    dependency_files = check_dependency_files(main_run_path, project_dir, check_dir, monitoring_time=monitoring_time,
-                                              pack_mode=pack_mode, delay_time=delay_time)
+    dependency_files = check_dependency_files(
+        main_run_path,
+        project_dir,
+        check_dir,
+        monitoring_time=monitoring_time,
+        pack_mode=pack_mode,
+        delay_time=delay_time,
+    )
     move_files(check_dir, project_dir, dependency_files)
