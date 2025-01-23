@@ -712,9 +712,14 @@ def to_pack(
     if auto_py_pyd:
         script_dir_main_py = os.path.join(script_dir, "main.py")
         try:
-            to_pyd(script_dir, script_dir_main_py=script_dir_main_py, is_del_py=True)
+            to_pyd(
+                script_dir,
+                script_dir_main_py=script_dir_main_py,
+                is_del_py=True,
+            )
         except Exception as e:
             my_logger.error(f"转pyd出错：{e}")
+            auto_py_pyd = False
 
     if auto_py_pyc or embed_exe or onefile:
         py_to_pyc(rundep_dir, pyc_optimize)

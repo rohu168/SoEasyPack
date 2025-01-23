@@ -14,10 +14,156 @@ from Cython.Build import cythonize
 from .my_logger import my_logger
 
 
+def find_msvc_version(vs_edition_path):
+    """查找 MSVC 版本"""
+    msvc_path = os.path.join(vs_edition_path, "VC", "Tools", "MSVC")
+    if os.path.exists(msvc_path):
+        # 获取所有版本目录并排序
+        versions = [
+            d
+            for d in os.listdir(msvc_path)
+            if os.path.isdir(os.path.join(msvc_path, d))
+        ]
+        versions.sort(reverse=True)  # 最新版本在前
+        if versions:
+            return versions[0]  # 返回最新版本,
+    return None
+
+
+def find_windows_sdk():
+    """查找 Windows SDK 路径"""
+    sdk_root = r"C:\Program Files (x86)\Windows Kits\10"
+    if os.path.exists(sdk_root):
+        # 获取最新的 SDK 版本
+        include_path = os.path.join(sdk_root, "Include")
+        if os.path.exists(include_path):
+            versions = [
+                d
+                for d in os.listdir(include_path)
+                if os.path.isdir(os.path.join(include_path, d))
+            ]
+            versions.sort(reverse=True)
+            if versions:
+                return sdk_root, versions[0]
+    return None, None
+
+
 def to_pyd(script_dir: str, script_dir_main_py: str, is_del_py: bool = False):
     my_logger.info("开始py转为pyd")
     os.chdir(script_dir)
     temp_build_dir = os.path.join(script_dir, "temp_build")  # 临时构建目录
+
+    # 尝试 VS2022 和 VS2019
+    vs_configs = [
+        {
+            "path": r"C:\Program Files\Microsoft Visual Studio\2022",
+            "env_var": "VS170COMNTOOLS",
+        },
+        {
+            "path": r"C:\Program Files (x86)\Microsoft Visual Studio\2019",
+            "env_var": "VS160COMNTOOLS",
+        },
+    ]
+
+    vs_found = False
+    for vs_config in vs_configs:
+        vs_path = vs_config["path"]
+        if os.path.exists(vs_path):
+            # 设置 DISTUTILS_USE_SDK 和 MSSdk
+            os.environ["DISTUTILS_USE_SDK"] = "1"
+            os.environ["MSSdk"] = "1"
+
+            # 查找 Windows SDK
+            sdk_root, sdk_version = find_windows_sdk()
+            if not sdk_root or not sdk_version:
+                my_logger.warning("未找到 Windows SDK，跳过 pyd 转换")
+                continue
+
+            # 设置 VS 路径
+            for edition in ["Community", "Professional", "Enterprise"]:
+                vs_edition_path = os.path.join(vs_path, edition)
+                if os.path.exists(vs_edition_path):
+                    # 设置 VS 工具路径
+                    os.environ[vs_config["env_var"]] = os.path.join(
+                        vs_edition_path, "Common7", "Tools"
+                    )
+
+                    # 查找 MSVC 版本
+                    msvc_version = find_msvc_version(vs_edition_path)
+                    if msvc_version:
+                        # 设置 cl.exe 路径
+                        cl_path = os.path.join(
+                            vs_edition_path,
+                            "VC",
+                            "Tools",
+                            "MSVC",
+                            msvc_version,
+                            "bin",
+                            "Hostx64",
+                            "x64",
+                        )
+                        if os.path.exists(cl_path):
+                            # 设置 PATH
+                            paths = [
+                                cl_path,
+                                # 添加 rc.exe 路径
+                                os.path.join(sdk_root, "bin", sdk_version, "x64"),
+                                os.environ["PATH"],
+                            ]
+                            os.environ["PATH"] = os.pathsep.join(paths)
+
+                            # 设置 INCLUDE 路径
+                            include_paths = [
+                                os.path.join(
+                                    vs_edition_path,
+                                    "VC",
+                                    "Tools",
+                                    "MSVC",
+                                    msvc_version,
+                                    "include",
+                                ),
+                                os.path.join(sdk_root, "Include", sdk_version, "ucrt"),
+                                os.path.join(sdk_root, "Include", sdk_version, "um"),
+                                os.path.join(
+                                    sdk_root, "Include", sdk_version, "shared"
+                                ),
+                            ]
+                            os.environ["INCLUDE"] = os.pathsep.join(include_paths)
+
+                            # 设置 LIB 路径
+                            lib_paths = [
+                                os.path.join(
+                                    vs_edition_path,
+                                    "VC",
+                                    "Tools",
+                                    "MSVC",
+                                    msvc_version,
+                                    "lib",
+                                    "x64",
+                                ),
+                                os.path.join(
+                                    sdk_root, "Lib", sdk_version, "ucrt", "x64"
+                                ),
+                                os.path.join(sdk_root, "Lib", sdk_version, "um", "x64"),
+                            ]
+                            os.environ["LIB"] = os.pathsep.join(lib_paths)
+
+                            my_logger.info(
+                                f"找到 Visual Studio: {os.path.basename(vs_path)}"
+                            )
+                            my_logger.info(f"找到 MSVC 版本: {msvc_version}")
+                            my_logger.info(f"找到 SDK 版本: {sdk_version}")
+                            vs_found = True
+                            break
+                if vs_found:
+                    break
+            if vs_found:
+                break
+
+    if not vs_found:
+        my_logger.warning("未找到 Visual Studio 安装，跳过 pyd 转换")
+        return
+
     py_files = glob.glob(os.path.join(script_dir, "**", "*.py"), recursive=True)
     white_list = []
     for py_file in py_files:
@@ -28,6 +174,7 @@ def to_pyd(script_dir: str, script_dir_main_py: str, is_del_py: bool = False):
     if not py_files:
         logging.warning(f"只有一个主py文件，不可转为pyd")
         return
+
     os.makedirs(temp_build_dir, exist_ok=True)
 
     # 编译 .py 文件
