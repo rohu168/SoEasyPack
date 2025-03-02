@@ -147,11 +147,16 @@ def copy_py_env(
         def ignore_files(src, names, py_exclusions):
             ignored = []
             for name in names:
+                # 不排除 multiprocessing 目录
+                if "multiprocessing" in src:
+                    if name == "__pycache__":
+                        ignored.append(name)
+                    continue
                 if any(fnmatch.fnmatch(name, pattern) for pattern in py_exclusions):
                     ignored.append(name)
             return ignored
 
-        # # 排除复制官方python无用的文件和文件夹
+        # 排除复制官方python无用的文件和文件夹
         py_exclusions = (
             "Scripts",
             "Doc",
@@ -173,9 +178,10 @@ def copy_py_env(
 
         ignore_func = partial(ignore_files, py_exclusions=py_exclusions)
         copytree_parallel(base_env_dir, dest, ignore_func)
+
         if pack_mode == 1:
-            # # 复制 site-packages
-            # # 排除复制site-packages其它无用文件
+            # 复制 site-packages
+            # 排除复制site-packages其它无用文件
             py_exclusions = [
                 "__pycache__",
                 "pip-*.dist-info",
@@ -214,7 +220,8 @@ def copy_py_env(
 
 
 def copy_embed_depend(save_dir, base_env_dir):
-    # # 复制运行嵌入exe所需依赖项
+    """复制运行嵌入exe所需依赖项"""
+    # 需要复制的 Python 标准库模块
     py_files = (
         "hmac",
         "secrets",
@@ -231,28 +238,226 @@ def copy_embed_depend(save_dir, base_env_dir):
         "fnmatch",
         "threading",
         "_weakrefset",
+        "runpy",  # 添加必要的模块
+        "pkgutil",  # 添加必要的模块
+        "types",  # 添加必要的模块
+        "platform",  # 添加必要的模块
     )
+
+    # 检查是否是 Python 3.12 或更高版本
+    is_py312_plus = sys.version_info >= (3, 12)
+
     for py_file in py_files:
         to_save_path = Path.joinpath(Path(save_dir), f"rundep/Lib/{py_file}.py")
         if not os.path.exists(to_save_path):
             py_file_path = Path.joinpath(Path(base_env_dir), f"Lib/{py_file}.py")
-            shutil.copyfile(py_file_path, to_save_path)
 
+            # 如果文件不存在，可能在 python312.zip 中
+            if is_py312_plus and not os.path.exists(py_file_path):
+                import zipfile
+
+                zip_path = Path.joinpath(Path(base_env_dir), "python312.zip")
+                if os.path.exists(zip_path):
+                    with zipfile.ZipFile(zip_path) as zf:
+                        try:
+                            content = zf.read(f"{py_file}.py")
+                            os.makedirs(os.path.dirname(to_save_path), exist_ok=True)
+                            with open(to_save_path, "wb") as f:
+                                f.write(content)
+                            continue
+                        except KeyError:
+                            pass
+
+            # 如果文件存在于 Lib 目录，直接复制
+            if os.path.exists(py_file_path):
+                os.makedirs(os.path.dirname(to_save_path), exist_ok=True)
+                shutil.copyfile(py_file_path, to_save_path)
+
+    # 复制 encodings 模块
     encodings_cp437_path = Path.joinpath(Path(base_env_dir), "Lib/encodings/cp437.py")
     to_cp437_path = Path.joinpath(Path(save_dir), f"rundep/Lib/encodings/cp437.py")
-    shutil.copyfile(encodings_cp437_path, to_cp437_path)
+
+    # 同样检查 encodings 模块是否在 zip 中
+    if is_py312_plus and not os.path.exists(encodings_cp437_path):
+        zip_path = Path.joinpath(Path(base_env_dir), "python312.zip")
+        if os.path.exists(zip_path):
+            with zipfile.ZipFile(zip_path) as zf:
+                try:
+                    content = zf.read("encodings/cp437.py")
+                    os.makedirs(os.path.dirname(to_cp437_path), exist_ok=True)
+                    with open(to_cp437_path, "wb") as f:
+                        f.write(content)
+                except KeyError:
+                    pass
+    elif os.path.exists(encodings_cp437_path):
+        os.makedirs(os.path.dirname(to_cp437_path), exist_ok=True)
+        shutil.copyfile(encodings_cp437_path, to_cp437_path)
+
+    # 复制 multiprocessing 相关文件
+    multiprocessing_files = [
+        "__init__.py",
+        "shared_memory.py",
+        "resource_tracker.py",
+        "connection.py",
+        "context.py",
+        "synchronize.py",
+        "heap.py",
+        "process.py",
+        "util.py",
+        "queues.py",
+        "reduction.py",
+        "spawn.py",
+        "popen_spawn_win32.py",
+        "semaphore_tracker.py",  # 添加必要的模块
+        "forkserver.py",  # 添加必要的模块
+        "managers.py",
+        "pool.py",
+        "sharedctypes.py",  # 添加必要的模块
+        "dummy/__init__.py",  # 添加必要的模块
+    ]
 
     multiprocessing_dir = Path.joinpath(Path(save_dir), "rundep/Lib/multiprocessing")
     os.makedirs(multiprocessing_dir, exist_ok=True)
-    shared_memory_path = Path.joinpath(
-        Path(base_env_dir), "Lib/multiprocessing/shared_memory.py"
-    )
-    to_shared_memory_path = Path.joinpath(multiprocessing_dir, "shared_memory.py")
-    shutil.copyfile(shared_memory_path, to_shared_memory_path)
+    os.makedirs(
+        Path.joinpath(multiprocessing_dir, "dummy"), exist_ok=True
+    )  # 创建 dummy 目录
 
+    for mp_file in multiprocessing_files:
+        src_path = Path.joinpath(Path(base_env_dir), f"Lib/multiprocessing/{mp_file}")
+        dst_path = Path.joinpath(multiprocessing_dir, mp_file)
+        if os.path.exists(src_path) and not os.path.exists(dst_path):
+            os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+            shutil.copyfile(src_path, dst_path)
+
+    # 复制 importlib 目录
     importlib_dir = Path.joinpath(Path(base_env_dir), "Lib/importlib")
     to_importlib_dir = Path.joinpath(Path(save_dir), "rundep/Lib/importlib")
-    shutil.copytree(importlib_dir, to_importlib_dir, dirs_exist_ok=True)
+
+    if is_py312_plus:
+        zip_path = Path.joinpath(Path(base_env_dir), "python312.zip")
+        if os.path.exists(zip_path):
+            with zipfile.ZipFile(zip_path) as zf:
+                for name in zf.namelist():
+                    if name.startswith("importlib/") and not name.endswith("/"):
+                        content = zf.read(name)
+                        out_path = Path.joinpath(Path(save_dir), f"rundep/Lib/{name}")
+                        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+                        with open(out_path, "wb") as f:
+                            f.write(content)
+    elif os.path.exists(importlib_dir):
+        shutil.copytree(importlib_dir, to_importlib_dir, dirs_exist_ok=True)
+
+    # 复制 PyWin32 相关文件
+    site_packages = Path.joinpath(Path(sys.prefix), "Lib/site-packages")
+    rundep_dir = Path.joinpath(Path(save_dir), "rundep")
+
+    # 复制 PyWin32 DLL 文件
+    pywin32_dlls = [
+        f"pythoncom{sys.version_info.major}{sys.version_info.minor}.dll",
+        f"pywintypes{sys.version_info.major}{sys.version_info.minor}.dll",
+    ]
+
+    win32_paths = [
+        "win32",
+        "win32/lib",
+        "win32com",
+        "win32comext",
+        "pywin32_system32",
+    ]
+
+    # 创建必要的目录
+    for path in win32_paths:
+        os.makedirs(Path.joinpath(rundep_dir, "Lib/site-packages", path), exist_ok=True)
+
+    # 复制 DLL 文件
+    pywin32_system32_dir = Path.joinpath(site_packages, "pywin32_system32")
+    if os.path.exists(pywin32_system32_dir):
+        for dll in os.listdir(pywin32_system32_dir):
+            if dll.lower() in [x.lower() for x in pywin32_dlls]:
+                src = Path.joinpath(pywin32_system32_dir, dll)
+                # 复制到 rundep 根目录
+                dst = Path.joinpath(rundep_dir, dll)
+                if not os.path.exists(dst):
+                    shutil.copy2(src, dst)
+                # 同时复制到 DLLs 目录
+                dlls_dir = Path.joinpath(rundep_dir, "DLLs")
+                os.makedirs(dlls_dir, exist_ok=True)
+                dst_dlls = Path.joinpath(dlls_dir, dll)
+                if not os.path.exists(dst_dlls):
+                    shutil.copy2(src, dst_dlls)
+
+    # 复制 pyd 文件
+    win32_dir = Path.joinpath(site_packages, "win32")
+    if os.path.exists(win32_dir):
+        for file in os.listdir(win32_dir):
+            if file.endswith(".pyd"):
+                src = Path.joinpath(win32_dir, file)
+                dst = Path.joinpath(rundep_dir, "Lib/site-packages/win32", file)
+                if not os.path.exists(dst):
+                    shutil.copy2(src, dst)
+
+    # 复制必要的 .py 文件
+    win32_files = [
+        ("win32/lib/pywintypes.py", "win32/lib"),
+        ("win32/lib/win32timezone.py", "win32/lib"),
+        ("win32com/__init__.py", "win32com"),
+        ("pythoncom.py", ""),
+    ]
+
+    for file_path, target_dir in win32_files:
+        src = Path.joinpath(site_packages, file_path)
+        if target_dir:
+            dst = Path.joinpath(
+                rundep_dir, "Lib/site-packages", target_dir, os.path.basename(file_path)
+            )
+        else:
+            dst = Path.joinpath(
+                rundep_dir, "Lib/site-packages", os.path.basename(file_path)
+            )
+        if os.path.exists(src) and not os.path.exists(dst):
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+
+    # 创建 sitecustomize.py 来设置必要的环境变量
+    sitecustomize_content = """
+import os
+import sys
+from pathlib import Path
+
+def setup_file_variables():
+    for module in sys.modules.values():
+        if module is None or getattr(module, '__file__', None) is not None:
+            continue
+        try:
+            if hasattr(module, '__spec__') and module.__spec__ is not None:
+                if module.__spec__.origin is not None:
+                    module.__file__ = module.__spec__.origin
+                    continue
+            
+            module_name = module.__name__.replace('.', '\\\\')
+            possible_paths = [
+                os.path.join(sys.path[0], f"{module_name}.py"),
+                os.path.join(sys.path[0], f"{module_name}.pyc"),
+                os.path.join(sys.path[0], module_name, "__init__.py"),
+                os.path.join(sys.path[0], module_name, "__init__.pyc"),
+            ]
+            
+            for path in possible_paths:
+                if os.path.exists(path):
+                    module.__file__ = path
+                    break
+        except:
+            continue
+
+setup_file_variables()
+"""
+
+    sitecustomize_path = Path.joinpath(
+        Path(save_dir), "rundep/Lib/site-packages/sitecustomize.py"
+    )
+    os.makedirs(os.path.dirname(sitecustomize_path), exist_ok=True)
+    with open(sitecustomize_path, "w", encoding="utf-8") as f:
+        f.write(sitecustomize_content)
 
 
 def xor_encrypt(file_path, key):
@@ -705,9 +910,18 @@ def to_pack(
     if embed_exe:
         copy_embed_depend(save_dir, sys.base_prefix)
 
-    # # 把用户主程序重命名为mian.py
-    script_dir = save_dir + "/rundep/AppData"
-    os.rename(new_main_py_path, os.path.join(script_dir, "main.py"))
+    # 把用户主程序重命名为mian.py
+    script_dir = os.path.normpath(save_dir + "/rundep/AppData")
+    main_py_name = os.path.basename(main_py_path)
+    new_main_py_path = os.path.normpath(os.path.join(script_dir, main_py_name))
+    target_main_py = os.path.normpath(os.path.join(script_dir, "main.py"))
+
+    try:
+        if os.path.exists(new_main_py_path):
+            os.rename(new_main_py_path, target_main_py)
+    except Exception as e:
+        my_logger.error(f"重命名主程序文件失败: {e}")
+        return
 
     if auto_py_pyd:
         script_dir_main_py = os.path.join(script_dir, "main.py")

@@ -988,7 +988,7 @@ type ModuleEntry32 struct {
 	ModBaseSize  uint32
 	ModuleHandle Handle
 	Module       [MAX_MODULE_NAME32 + 1]uint16
-	ExePath      [MAX_PATH]uint16
+	exe_path      [MAX_PATH]uint16
 }
 
 const SizeofModuleEntry32 = unsafe.Sizeof(ModuleEntry32{})

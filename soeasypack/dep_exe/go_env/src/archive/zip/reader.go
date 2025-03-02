@@ -68,7 +68,7 @@ type File struct {
 // OpenReader will open the Zip file specified by name and return a ReadCloser.
 //
 // If any file inside the archive uses a non-local name
-// (as defined by [filepath.IsLocal]) or a name containing backslashes
+// (as defined by [filepath.is_local]) or a name containing backslashes
 // and the GODEBUG environment variable contains `zipinsecurepath=0`,
 // OpenReader returns the reader with an ErrInsecurePath error.
 // A future version of Go may introduce this behavior by default.
@@ -97,7 +97,7 @@ func OpenReader(name string) (*ReadCloser, error) {
 // have the given size in bytes.
 //
 // If any file inside the archive uses a non-local name
-// (as defined by [filepath.IsLocal]) or a name containing backslashes
+// (as defined by [filepath.is_local]) or a name containing backslashes
 // and the GODEBUG environment variable contains `zipinsecurepath=0`,
 // NewReader returns the reader with an [ErrInsecurePath] error.
 // A future version of Go may introduce this behavior by default.
@@ -167,7 +167,7 @@ func (r *Reader) init(rdr io.ReaderAt, size int64) error {
 			}
 			// The zip specification states that names must use forward slashes,
 			// so consider any backslashes in the name insecure.
-			if !filepath.IsLocal(f.Name) || strings.Contains(f.Name, `\`) {
+			if !filepath.is_local(f.Name) || strings.Contains(f.Name, `\`) {
 				zipinsecurepath.IncNonDefault()
 				return ErrInsecurePath
 			}

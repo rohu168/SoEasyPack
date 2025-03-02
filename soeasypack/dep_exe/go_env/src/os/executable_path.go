@@ -12,14 +12,14 @@ package os
 var initWd, errWd = Getwd()
 
 func executable() (string, error) {
-	var exePath string
+	var exe_path string
 	if len(Args) == 0 || Args[0] == "" {
 		return "", ErrNotExist
 	}
 	if IsPathSeparator(Args[0][0]) {
 		// Args[0] is an absolute path, so it is the executable.
 		// Note that we only need to worry about Unix paths here.
-		exePath = Args[0]
+		exe_path = Args[0]
 	} else {
 		for i := 1; i < len(Args[0]); i++ {
 			if IsPathSeparator(Args[0][i]) {
@@ -28,16 +28,16 @@ func executable() (string, error) {
 				if errWd != nil {
 					return "", errWd
 				}
-				exePath = initWd + string(PathSeparator) + Args[0]
+				exe_path = initWd + string(PathSeparator) + Args[0]
 				break
 			}
 		}
 	}
-	if exePath != "" {
-		if err := isExecutable(exePath); err != nil {
+	if exe_path != "" {
+		if err := isExecutable(exe_path); err != nil {
 			return "", err
 		}
-		return exePath, nil
+		return exe_path, nil
 	}
 	// Search for executable in $PATH.
 	for _, dir := range splitPathList(Getenv("PATH")) {
@@ -50,10 +50,10 @@ func executable() (string, error) {
 			}
 			dir = initWd + string(PathSeparator) + dir
 		}
-		exePath = dir + string(PathSeparator) + Args[0]
-		switch isExecutable(exePath) {
+		exe_path = dir + string(PathSeparator) + Args[0]
+		switch isExecutable(exe_path) {
 		case nil:
-			return exePath, nil
+			return exe_path, nil
 		case ErrPermission:
 			return "", ErrPermission
 		}

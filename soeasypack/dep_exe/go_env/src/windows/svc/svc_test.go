@@ -91,15 +91,15 @@ func TestExample(t *testing.T) {
 	}
 	defer m.Disconnect()
 
-	exepath := filepath.Join(t.TempDir(), "a.exe")
-	o, err := exec.Command("go", "build", "-o", exepath, "golang.org/x/sys/windows/svc/example").CombinedOutput()
+	exe_path := filepath.Join(t.TempDir(), "a.exe")
+	o, err := exec.Command("go", "build", "-o", exe_path, "golang.org/x/sys/windows/svc/example").CombinedOutput()
 	if err != nil {
 		t.Fatalf("failed to build service program: %v\n%v", err, string(o))
 	}
 
 	stopAndDeleteIfInstalled(t, m, name)
 
-	s, err := m.CreateService(name, exepath, mgr.Config{DisplayName: "x-sys svc test service"}, "-name", name)
+	s, err := m.CreateService(name, exe_path, mgr.Config{DisplayName: "x-sys svc test service"}, "-name", name)
 	if err != nil {
 		t.Fatalf("CreateService(%s) failed: %v", name, err)
 	}

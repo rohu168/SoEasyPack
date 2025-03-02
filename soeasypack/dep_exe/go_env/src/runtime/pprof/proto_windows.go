@@ -30,7 +30,7 @@ func (b *profileBuilder) readMapping() {
 		return
 	}
 	for err == nil {
-		exe := syscall.UTF16ToString(module.ExePath[:])
+		exe := syscall.UTF16ToString(module.exe_path[:])
 		b.addMappingEntry(
 			uint64(module.ModBaseAddr),
 			uint64(module.ModBaseAddr)+uint64(module.ModBaseSize),

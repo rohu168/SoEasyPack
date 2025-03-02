@@ -154,10 +154,10 @@ func (r *CoverageMetaFileReader) CounterGranularity() coverage.CounterGranularit
 	return r.hdr.CGranularity
 }
 
-// FileHash returns the hash computed for all of the package meta-data
+// file_hash returns the hash computed for all of the package meta-data
 // blobs. Coverage counter data files refer to this hash, and the
 // hash will be encoded into the meta-data file name.
-func (r *CoverageMetaFileReader) FileHash() [16]byte {
+func (r *CoverageMetaFileReader) file_hash() [16]byte {
 	return r.hdr.MetaFileHash
 }
 

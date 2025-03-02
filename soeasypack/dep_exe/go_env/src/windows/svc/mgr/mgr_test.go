@@ -43,7 +43,7 @@ func TestOpenLanManServer(t *testing.T) {
 	}
 }
 
-func install(t *testing.T, m *mgr.Mgr, name, exepath string, c mgr.Config) {
+func install(t *testing.T, m *mgr.Mgr, name, exe_path string, c mgr.Config) {
 	// Sometimes it takes a while for the service to get
 	// removed after previous test run.
 	for i := 0; ; i++ {
@@ -59,7 +59,7 @@ func install(t *testing.T, m *mgr.Mgr, name, exepath string, c mgr.Config) {
 		time.Sleep(300 * time.Millisecond)
 	}
 
-	s, err := m.CreateService(name, exepath, c)
+	s, err := m.CreateService(name, exe_path, c)
 	if err != nil {
 		t.Fatalf("CreateService(%s) failed: %v", name, err)
 	}
@@ -301,12 +301,12 @@ func TestMyService(t *testing.T) {
 	}
 
 	exename := os.Args[0]
-	exepath, err := filepath.Abs(exename)
+	exe_path, err := filepath.Abs(exename)
 	if err != nil {
 		t.Fatalf("filepath.Abs(%s) failed: %s", exename, err)
 	}
 
-	install(t, m, name, exepath, c)
+	install(t, m, name, exe_path, c)
 
 	s, err := m.OpenService(name)
 	if err != nil {
@@ -315,7 +315,7 @@ func TestMyService(t *testing.T) {
 	defer s.Close()
 	defer s.Delete()
 
-	c.BinaryPathName = exepath
+	c.BinaryPathName = exe_path
 	c = testConfig(t, s, c)
 
 	c.StartType = mgr.StartManual

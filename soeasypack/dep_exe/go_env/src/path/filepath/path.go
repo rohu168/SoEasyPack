@@ -18,6 +18,7 @@ import (
 	"io/fs"
 	"os"
 	"slices"
+	"strings"
 )
 
 const (
@@ -49,29 +50,41 @@ const (
 // occurrences of "/" with `\`.
 // For example, Clean("//host/share/../x") returns `\\host\share\x`.
 //
-// See also Rob Pike, “Lexical File Names in Plan 9 or
-// Getting Dot-Dot Right,”
+// See also Rob Pike, "Lexical File Names in Plan 9 or
+// Getting Dot-Dot Right,"
 // https://9p.io/sys/doc/lexnames.html
 func Clean(path string) string {
 	return filepathlite.Clean(path)
 }
 
-// IsLocal reports whether path, using lexical analysis only, has all of these properties:
+// is_local reports whether path, using lexical analysis only, has all of these properties:
 //
 //   - is within the subtree rooted at the directory in which path is evaluated
 //   - is not an absolute path
 //   - is not empty
 //   - on Windows, is not a reserved name such as "NUL"
 //
-// If IsLocal(path) returns true, then
+// If is_local(path) returns true, then
 // Join(base, path) will always produce a path contained within base and
 // Clean(path) will always produce an unrooted path with no ".." path elements.
 //
-// IsLocal is a purely lexical operation.
+// is_local is a purely lexical operation.
 // In particular, it does not account for the effect of any symbolic links
 // that may exist in the filesystem.
-func IsLocal(path string) bool {
-	return filepathlite.IsLocal(path)
+func is_local(path string) bool {
+	if path == "" {
+		return false
+	}
+	if IsAbs(path) {
+		return false
+	}
+	
+	// 检查路径是否包含 .. 或 . 并指向父目录外
+	clean := Clean(path)
+	if clean == ".." || strings.HasPrefix(clean, "../") {
+		return false
+	}
+	return true
 }
 
 // Localize converts a slash-separated path into an operating system path.
@@ -81,7 +94,7 @@ func IsLocal(path string) bool {
 // For example, the path a\b is rejected on Windows, on which \ is a separator
 // character and cannot be part of a filename.
 //
-// The path returned by Localize will always be local, as reported by IsLocal.
+// The path returned by Localize will always be local, as reported by is_local.
 func Localize(path string) (string, error) {
 	return filepathlite.Localize(path)
 }

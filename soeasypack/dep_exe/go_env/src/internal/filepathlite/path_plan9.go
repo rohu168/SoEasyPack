@@ -18,7 +18,7 @@ func IsPathSeparator(c uint8) bool {
 	return Separator == c
 }
 
-func isLocal(path string) bool {
+func is_local(path string) bool {
 	return unixIsLocal(path)
 }
 

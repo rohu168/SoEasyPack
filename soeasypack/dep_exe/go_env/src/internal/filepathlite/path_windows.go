@@ -19,7 +19,7 @@ func IsPathSeparator(c uint8) bool {
 	return c == '\\' || c == '/'
 }
 
-func isLocal(path string) bool {
+func is_local(path string) bool {
 	if path == "" {
 		return false
 	}

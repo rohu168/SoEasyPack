@@ -105,20 +105,20 @@ func toStringBlock(ss []string) *uint16 {
 }
 
 // CreateService installs new service name on the system.
-// The service will be executed by running exepath binary.
+// The service will be executed by running exe_path binary.
 // Use config c to specify service parameters.
 // Any args will be passed as command-line arguments when
 // the service is started; these arguments are distinct from
 // the arguments passed to Service.Start or via the "Start
 // parameters" field in the service's Properties dialog box.
-func (m *Mgr) CreateService(name, exepath string, c Config, args ...string) (*Service, error) {
+func (m *Mgr) CreateService(name, exe_path string, c Config, args ...string) (*Service, error) {
 	if c.StartType == 0 {
 		c.StartType = StartManual
 	}
 	if c.ServiceType == 0 {
 		c.ServiceType = windows.SERVICE_WIN32_OWN_PROCESS
 	}
-	s := syscall.EscapeArg(exepath)
+	s := syscall.EscapeArg(exe_path)
 	for _, v := range args {
 		s += " " + syscall.EscapeArg(v)
 	}

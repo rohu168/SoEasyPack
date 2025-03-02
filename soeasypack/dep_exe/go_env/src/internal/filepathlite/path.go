@@ -137,33 +137,6 @@ func Clean(path string) string {
 	return FromSlash(out.string())
 }
 
-// IsLocal is filepath.IsLocal.
-func IsLocal(path string) bool {
-	return isLocal(path)
-}
-
-func unixIsLocal(path string) bool {
-	if IsAbs(path) || path == "" {
-		return false
-	}
-	hasDots := false
-	for p := path; p != ""; {
-		var part string
-		part, p, _ = stringslite.Cut(p, "/")
-		if part == "." || part == ".." {
-			hasDots = true
-			break
-		}
-	}
-	if hasDots {
-		path = Clean(path)
-	}
-	if path == ".." || stringslite.HasPrefix(path, "../") {
-		return false
-	}
-	return true
-}
-
 // Localize is filepath.Localize.
 func Localize(path string) (string, error) {
 	if !fs.ValidPath(path) {
@@ -271,4 +244,26 @@ func VolumeName(path string) string {
 // It returns 0 elsewhere.
 func VolumeNameLen(path string) int {
 	return volumeNameLen(path)
+}
+
+func unixIsLocal(path string) bool {
+	if IsAbs(path) || path == "" {
+		return false
+	}
+	hasDots := false
+	for p := path; p != ""; {
+		var part string
+		part, p, _ = stringslite.Cut(p, "/")
+		if part == "." || part == ".." {
+			hasDots = true
+			break
+		}
+	}
+	if hasDots {
+		path = Clean(path)
+	}
+	if path == ".." || stringslite.HasPrefix(path, "../") {
+		return false
+	}
+	return true
 }
